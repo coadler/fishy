@@ -28,7 +28,7 @@ func init() {
 	}
 
 	if err := json.Unmarshal(configData, &config); err != nil {
-		log.Panic("Could not unmarshal unmarshal config, " + err.Error())
+		log.Panic("Could not unmarshal config, " + err.Error())
 	}
 
 	client = redis.NewClient(&redis.Options{
