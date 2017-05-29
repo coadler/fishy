@@ -1,0 +1,162 @@
+{
+    "bait": [
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0.00
+        },
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0.00
+        },
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0.00
+        },
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0.00
+        },
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0.00
+        }
+    ],
+    "rod": [
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0.00
+        },
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0.00
+        },
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0.00
+        },
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0.00
+        },
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0.00
+        }
+    ],
+    "hook": [
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0.00
+        },
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0.00
+        },
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0.00
+        },
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0.00
+        },
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0.00
+        },
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0.00
+        }
+    ],
+    "vehicle": [
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0
+        },
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0
+        },
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0
+        },
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0
+        }
+    ],
+    "bait_box": [
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0
+        },
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0
+        },
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0
+        },
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0
+        },
+        {
+            "name": "",
+            "tier": 0,
+            "cost": 0,
+            "effect": 0
+        }
+    ]
+}

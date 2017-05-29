@@ -2,6 +2,7 @@ package main
 
 import "net/http"
 
+// Route is the structure for reach route
 type Route struct {
 	Name        string
 	Method      string
@@ -9,13 +10,26 @@ type Route struct {
 	HandlerFunc http.HandlerFunc
 }
 
+// Routes stores all routes in a slice
 type Routes []Route
 
 var routes = Routes{
 	Route{
 		"Index",
 		"GET",
-		"/",
+		"/v1",
 		Index,
+	},
+	Route{
+		"Fish",
+		"POST",
+		"/v1/fish",
+		Fish,
+	},
+	Route{
+		"Websocket",
+		"GET",
+		"/v1/ws",
+		OpenWS,
 	},
 }

@@ -2,6 +2,6 @@
     "redis": {
         "url": "sample url",
         "password": "secret",
-        "db": 0 // leave 0 for default db
+        "db": 0
     }
 }

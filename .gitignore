@@ -3,3 +3,10 @@ config.json
 
 # compiled binary
 fishy
+
+# non-public json files
+json/fish.json
+json/items.json
+json/userfish.json
+json/useritems.json
+json/userlocationdensity.json
