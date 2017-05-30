@@ -10,3 +10,6 @@ json/items.json
 json/userfish.json
 json/useritems.json
 json/userlocationdensity.json
+
+# vscode
+.vscode

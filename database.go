@@ -27,6 +27,8 @@ var config Config
 const locDensityExpiration time.Duration = 3 * time.Hour
 const locDensityKey string = "user:locationdensity:"
 
+const rateLimitKey string = "ratelimit:"
+
 func init() {
 	configData, err := ioutil.ReadFile("config.json")
 	if err != nil {
@@ -140,6 +142,30 @@ func DBGetSetLocDensity(location string, userID string) (UserLocDensity, error) 
 		return UserLocDensity{}, err
 	}
 	return LocDensity, nil
+}
+
+// DBCheckRateLimit checks the ratelimit of a given command
+func DBCheckRateLimit(cmd string, userID string) (bool, time.Duration) {
+	key := rateLimitKey + cmd + ":" + userID
+	timeRemaining, _ := redisClient.TTL(key).Result()
+
+	if time.Duration(-2)*time.Second == timeRemaining {
+		return false, time.Duration(0)
+	}
+	if time.Duration(-1)*time.Second == timeRemaining {
+		return false, time.Duration(0)
+	}
+	return true, timeRemaining
+}
+
+// DBSetRateLimit sets a new ratelimit for a given command
+func DBSetRateLimit(cmd string, userID string, ttl time.Duration) error {
+	key := rateLimitKey + cmd + ":" + userID
+	err := redisClient.Set(key, "", ttl).Err()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func marshalAndSet(data interface{}, key string, expiration time.Duration) error {
