@@ -25,9 +25,6 @@ var redisClient *redis.Client
 var config Config
 
 const locDensityExpiration time.Duration = 3 * time.Hour
-const locDensityKey string = "user:locationdensity:"
-
-const rateLimitKey string = "ratelimit:"
 
 func init() {
 	configData, err := ioutil.ReadFile("config.json")
@@ -55,7 +52,7 @@ func DBCmdStats(cmd string) *redis.IntCmd {
 // DBGetLocDensity will get current location density or set default if it doesn't exist in the database
 func DBGetLocDensity(userID string) (UserLocDensity, error) {
 	var LocDensity UserLocDensity
-	key := locDensityKey + userID
+	key := LocDensityKey(userID)
 	// check to see if key exists in db (true == exists, false == doesn't exist)
 	if exists := redisClient.Exists(key); exists.Val() == int64(1) {
 		// get key
@@ -84,7 +81,7 @@ func DBGetLocDensity(userID string) (UserLocDensity, error) {
 // this will return the new location density and an error if applicable
 func dbSetLocDensity(location string, userID string) (UserLocDensity, error) {
 	var LocDensity UserLocDensity
-	key := locDensityKey + userID
+	key := LocDensityKey(userID)
 	cmd := redisClient.Get(key).Val()
 	err := json.Unmarshal([]byte(cmd), &LocDensity)
 	if err != nil {
@@ -146,7 +143,7 @@ func DBGetSetLocDensity(location string, userID string) (UserLocDensity, error) 
 
 // DBCheckRateLimit checks the ratelimit of a given command
 func DBCheckRateLimit(cmd string, userID string) (bool, time.Duration) {
-	key := rateLimitKey + cmd + ":" + userID
+	key := RateLimitKey(cmd, userID)
 	timeRemaining, _ := redisClient.TTL(key).Result()
 
 	if time.Duration(0)*time.Second >= timeRemaining {
@@ -158,7 +155,7 @@ func DBCheckRateLimit(cmd string, userID string) (bool, time.Duration) {
 
 // DBSetRateLimit sets a new ratelimit for a given command
 func DBSetRateLimit(cmd string, userID string, ttl time.Duration) error {
-	key := rateLimitKey + cmd + ":" + userID
+	key := RateLimitKey(cmd, userID)
 	err := redisClient.Set(key, "", ttl).Err()
 	if err != nil {
 		return err
@@ -171,7 +168,7 @@ func marshalAndSet(data interface{}, key string, expiration time.Duration) error
 	if err != nil {
 		return err
 	}
-	err = redisClient.Set(key, set, locDensityExpiration).Err()
+	err = redisClient.Set(key, set, expiration).Err()
 	if err != nil {
 		return err
 	}
