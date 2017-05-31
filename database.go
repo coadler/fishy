@@ -149,7 +149,7 @@ func DBCheckRateLimit(cmd string, userID string) (bool, time.Duration) {
 	key := rateLimitKey + cmd + ":" + userID
 	timeRemaining, _ := redisClient.TTL(key).Result()
 
-	if time.Duration(0)*time.Second > timeRemaining {
+	if time.Duration(0)*time.Second >= timeRemaining {
 		return false, time.Duration(0)
 	}
 
