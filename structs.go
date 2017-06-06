@@ -1,5 +1,11 @@
 package main
 
+import (
+	"encoding/json"
+	"io/ioutil"
+	"log"
+)
+
 // FishData holds the JSON structure for fish.json
 type FishData struct {
 	Location struct {
@@ -175,4 +181,35 @@ type UserLocDensity struct {
 type LocationResponse struct {
 	Location string `json:"location"`
 	Error    bool   `json:"error"`
+}
+
+// ConfigData holds the structure for config.json
+type ConfigData struct {
+	Redis struct {
+		URL      string `json:"url"`
+		Password string `json:"password"`
+		DB       int    `json:"db"`
+	} `json:"redis"`
+}
+
+var (
+	Fish   FishData
+	Items  ItemData
+	Config ConfigData
+
+	files   = []string{"json/fish.json", "json/items.json", "config.json"}
+	structs = []interface{}{&Fish, &Items, &Config}
+)
+
+func GetConfigs() {
+	for k, v := range files {
+		data, err := ioutil.ReadFile(v)
+		if err != nil {
+			log.Panic(v + " not detected in current directory, " + err.Error())
+		}
+
+		if err := json.Unmarshal(data, &structs[k]); err != nil {
+			log.Panic("Could not unmarshal json, " + err.Error())
+		}
+	}
 }

@@ -4,42 +4,24 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"log"
+	"math"
 	"math/rand"
 	"time"
 
 	"github.com/go-redis/redis"
 )
 
-// Config holds the structure for config.json
-type Config struct {
-	Redis struct {
-		URL      string `json:"url"`
-		Password string `json:"password"`
-		DB       int    `json:"db"`
-	} `json:"redis"`
-}
-
 var redisClient *redis.Client
-var config Config
 
 const locDensityExpiration time.Duration = 3 * time.Hour
 
 func init() {
-	configData, err := ioutil.ReadFile("config.json")
-	if err != nil {
-		log.Panic("Config not detected in current directory, " + err.Error())
-	}
-
-	if err := json.Unmarshal(configData, &config); err != nil {
-		log.Panic("Could not unmarshal config, " + err.Error())
-	}
-
+	rand.Seed(time.Now().UTC().UnixNano())
+	GetConfigs()
 	redisClient = redis.NewClient(&redis.Options{
-		Addr:     config.Redis.URL,
-		Password: config.Redis.Password,
-		DB:       config.Redis.DB,
+		Addr:     Config.Redis.URL,
+		Password: Config.Redis.Password,
+		DB:       Config.Redis.DB,
 	})
 
 }
@@ -77,7 +59,7 @@ func DBGetLocDensity(userID string) (UserLocDensity, error) {
 
 // dbSetLocDensity randomly assigns density to a new location after fishing
 // note: this should only be called inside of DBGetSetLocDensity and as a result
-// does not check to see if the key already exists, therefor it is unexported
+// does not check to see if the key already exists, therefore it is unexported
 // this will return the new location density and an error if applicable
 func dbSetLocDensity(location string, userID string) (UserLocDensity, error) {
 	var LocDensity UserLocDensity
@@ -88,38 +70,36 @@ func dbSetLocDensity(location string, userID string) (UserLocDensity, error) {
 		return UserLocDensity{}, err
 	}
 
-	randDensity := rand.Intn(2) + 1
-	randLocation := rand.Intn(1) + 1
+	randDensity := int(math.Floor(float64(rand.Intn(97)/33))) + 1
+	randLocation := rand.Intn(100)
+	fmt.Println(randDensity, randLocation)
 	switch location {
 	case "lake":
-		LocDensity.Lake = LocDensity.Lake - randDensity
-		if randLocation == 1 {
-			LocDensity.River = LocDensity.River + randDensity
+		LocDensity.Lake -= randDensity
+		if randLocation < 51 {
+			LocDensity.River += randDensity
 		} else {
-			LocDensity.Ocean = LocDensity.Ocean + randDensity
+			LocDensity.Ocean += randDensity
 		}
 	case "river":
-		LocDensity.River = LocDensity.River - randDensity
-		if randLocation == 1 {
-			LocDensity.Lake = LocDensity.Lake + randDensity
+		LocDensity.River -= randDensity
+		if randLocation < 51 {
+			LocDensity.Lake += randDensity
 		} else {
-			LocDensity.Ocean = LocDensity.Ocean + randDensity
+			LocDensity.Ocean += randDensity
 		}
 	case "ocean":
-		LocDensity.Ocean = LocDensity.Ocean - randDensity
-		if randLocation == 1 {
-			LocDensity.Lake = LocDensity.Lake + randDensity
+		LocDensity.Ocean -= randDensity
+		if randLocation < 51 {
+			LocDensity.Lake += randDensity
 		} else {
-			LocDensity.River = LocDensity.River + randDensity
+			LocDensity.River += randDensity
 		}
 	default:
 		return UserLocDensity{}, errors.New("Invalid Location")
 	}
 
-	err = marshalAndSet(LocDensity, key, locDensityExpiration)
-	if err != nil {
-		return UserLocDensity{}, err
-	}
+	go marshalAndSet(LocDensity, key, locDensityExpiration)
 	return LocDensity, nil
 }
 

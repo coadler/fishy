@@ -17,9 +17,9 @@ func Index(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "Hello world\n")
 }
 
-// Fish is the main route for t!fishy
-func Fish(w http.ResponseWriter, r *http.Request) {
-	DBCmdStats("fishy")
+// Fishy is the main route for t!fishy
+func Fishy(w http.ResponseWriter, r *http.Request) {
+	go DBCmdStats("fishy")
 	var msg *discordgo.Message
 	defer r.Body.Close()
 	err := readAndUnmarshal(r.Body, &msg)
@@ -32,24 +32,27 @@ func Fish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Fprint(w, ":fishing_pole_and_fish:  |  "+msg.Author.Username+", you caught: :fish:! You paid :yen: 10 for casting.")
+	loc := DBGetLocation(msg.Author.ID)
+	density, err := DBGetSetLocDensity(loc, msg.Author.ID)
 
-	err = DBSetRateLimit("fishy", msg.Author.ID, 10*time.Second)
-	if err != nil {
-		fmt.Println(err.Error())
-		return
-	}
+	fmt.Fprintf(w, "%v fishing in %v \n %+v", msg.Author.Username, loc, density)
+
+	go DBSetRateLimit("fishy", msg.Author.ID, 10*time.Second)
+	// if err != nil {
+	// 	fmt.Println(err.Error())
+	// 	return
+	// }
 }
 
 // Inventory is the main route for getting a user's item inventory
 func Inventory(w http.ResponseWriter, r *http.Request) {
-	DBCmdStats("inventory")
+	go DBCmdStats("inventory")
 
 }
 
 // Location is the main route for changing or getting a user's location
 func Location(w http.ResponseWriter, r *http.Request) {
-	DBCmdStats("location")
+	go DBCmdStats("location")
 	var respErr = false
 	var vars = mux.Vars(r)
 	var user = vars["userID"]

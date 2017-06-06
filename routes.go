@@ -24,7 +24,7 @@ var routes = Routes{
 		"Fish",
 		"POST",
 		"/v1/fish",
-		Fish,
+		Fishy,
 	},
 	Route{
 		"Websocket",
@@ -43,5 +43,11 @@ var routes = Routes{
 		"PATCH",
 		"/v1/location/{userID}/{loc}",
 		Location,
+	},
+	Route{
+		"GetInventory",
+		"GET",
+		"/v1/inventory/{userID}",
+		Inventory,
 	},
 }
