@@ -32,4 +32,16 @@ var routes = Routes{
 		"/v1/ws",
 		OpenWS,
 	},
+	Route{
+		"GetLocation",
+		"GET",
+		"/v1/location/{userID}",
+		Location,
+	},
+	Route{
+		"SetLocation",
+		"PATCH",
+		"/v1/location/{userID}/{loc}",
+		Location,
+	},
 }

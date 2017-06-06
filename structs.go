@@ -170,3 +170,9 @@ type UserLocDensity struct {
 	River int `json:"river"`
 	Ocean int `json:"ocean"`
 }
+
+//
+type LocationResponse struct {
+	Location string `json:"location"`
+	Error    bool   `json:"error"`
+}

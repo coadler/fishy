@@ -163,6 +163,25 @@ func DBSetRateLimit(cmd string, userID string, ttl time.Duration) error {
 	return nil
 }
 
+//
+func DBGetLocation(userID string) string {
+	key := LocationKey(userID)
+	cmd, err := redisClient.Get(key).Result()
+	if err != nil {
+		if err = redisClient.Set(key, "lake", 0).Err(); err != nil { // set default location if no key exists
+			fmt.Println("Error setting key", err.Error())
+			return ""
+		}
+		return "lake"
+	}
+	return cmd
+}
+
+//
+func DBSetLocation(userID string, loc string) error {
+	return redisClient.Set(LocationKey(userID), loc, 0).Err()
+}
+
 func marshalAndSet(data interface{}, key string, expiration time.Duration) error {
 	set, err := json.Marshal(data)
 	if err != nil {
