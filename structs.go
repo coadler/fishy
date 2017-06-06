@@ -4,36 +4,110 @@ package main
 type FishData struct {
 	Location struct {
 		Lake struct {
-			Fish []struct {
-				Name  string   `json:"name"`
-				Size  []int    `json:"size"`
-				Price []int    `json:"price"`
-				Tier  int      `json:"tier"`
-				Time  []string `json:"time"`
-				Pun   string   `json:"pun"`
-			} `json:"fish"`
+			T1 []struct {
+				Name string   `json:"name"`
+				Size []int    `json:"size"`
+				Time []string `json:"time"`
+				Pun  string   `json:"pun"`
+			} `json:"t1"`
+			T2 []struct {
+				Name string   `json:"name"`
+				Size []int    `json:"size"`
+				Time []string `json:"time"`
+				Pun  string   `json:"pun"`
+			} `json:"t2"`
+			T3 []struct {
+				Name string   `json:"name"`
+				Size []int    `json:"size"`
+				Time []string `json:"time"`
+				Pun  string   `json:"pun"`
+			} `json:"t3"`
+			T4 []struct {
+				Name string   `json:"name"`
+				Size []int    `json:"size"`
+				Time []string `json:"time"`
+				Pun  string   `json:"pun"`
+			} `json:"t4"`
+			T5 []struct {
+				Name string   `json:"name"`
+				Size []int    `json:"size"`
+				Time []string `json:"time"`
+				Pun  string   `json:"pun"`
+			} `json:"t5"`
 		} `json:"lake"`
 		River struct {
-			Fish []struct {
-				Name  string   `json:"name"`
-				Size  []int    `json:"size"`
-				Price []int    `json:"price"`
-				Tier  int      `json:"tier"`
-				Time  []string `json:"time"`
-				Pun   string   `json:"pun"`
-			} `json:"fish"`
+			T1 []struct {
+				Name string   `json:"name"`
+				Size []int    `json:"size"`
+				Time []string `json:"time"`
+				Pun  string   `json:"pun"`
+			} `json:"t1"`
+			T2 []struct {
+				Name string   `json:"name"`
+				Size []int    `json:"size"`
+				Time []string `json:"time"`
+				Pun  string   `json:"pun"`
+			} `json:"t2"`
+			T3 []struct {
+				Name string   `json:"name"`
+				Size []int    `json:"size"`
+				Time []string `json:"time"`
+				Pun  string   `json:"pun"`
+			} `json:"t3"`
+			T4 []struct {
+				Name string   `json:"name"`
+				Size []int    `json:"size"`
+				Time []string `json:"time"`
+				Pun  string   `json:"pun"`
+			} `json:"t4"`
+			T5 []struct {
+				Name string   `json:"name"`
+				Size []int    `json:"size"`
+				Time []string `json:"time"`
+				Pun  string   `json:"pun"`
+			} `json:"t5"`
 		} `json:"river"`
 		Ocean struct {
-			Fish []struct {
-				Name  string   `json:"name"`
-				Size  []int    `json:"size"`
-				Price []int    `json:"price"`
-				Tier  int      `json:"tier"`
-				Time  []string `json:"time"`
-				Pun   string   `json:"pun"`
-			} `json:"fish"`
+			T1 []struct {
+				Name string   `json:"name"`
+				Size []int    `json:"size"`
+				Time []string `json:"time"`
+				Pun  string   `json:"pun"`
+			} `json:"t1"`
+			T2 []struct {
+				Name string   `json:"name"`
+				Size []int    `json:"size"`
+				Time []string `json:"time"`
+				Pun  string   `json:"pun"`
+			} `json:"t2"`
+			T3 []struct {
+				Name string   `json:"name"`
+				Size []int    `json:"size"`
+				Time []string `json:"time"`
+				Pun  string   `json:"pun"`
+			} `json:"t3"`
+			T4 []struct {
+				Name string   `json:"name"`
+				Size []int    `json:"size"`
+				Time []string `json:"time"`
+				Pun  string   `json:"pun"`
+			} `json:"t4"`
+			T5 []struct {
+				Name string   `json:"name"`
+				Size []int    `json:"size"`
+				Time []string `json:"time"`
+				Pun  string   `json:"pun"`
+			} `json:"t5"`
 		} `json:"ocean"`
 	} `json:"location"`
+	Trash struct {
+		Regular  []string `json:"regular"`
+		Treasure []struct {
+			Name        string `json:"name"`
+			Description string `json:"description"`
+			Worth       int    `json:"worth"`
+		} `json:"treasure"`
+	} `json:"trash"`
 }
 
 // UserFish holds the JSON structure for a users current fish inventory
