@@ -203,6 +203,48 @@ func DBGetInventory(userID string) UserItems {
 	return UserItems{-1, -1, -1, -1, -1}
 }
 
+// DBGetGlobalScore gets a users global xp for a specific user
+func DBGetGlobalScore(userID string) float64 {
+	exp, err := redisClient.ZScore(ScoreGlobalKey, userID).Result()
+	if err != nil {
+		z := redis.Z{Score: 0, Member: userID}
+		redisClient.ZAdd(ScoreGlobalKey, z)
+		return float64(0)
+	}
+	return exp
+}
+
+// DBGiveGlobalScore increments a users global exp
+func DBGiveGlobalScore(userID string, amt float64) error {
+	err := redisClient.ZIncrBy(ScoreGlobalKey, amt, userID).Err()
+	if err != nil {
+		fmt.Println("error incrementing global exp", err.Error())
+		return err
+	}
+	return nil
+}
+
+// DBGetGuildScore gets a users global xp for a specific user
+func DBGetGuildScore(userID string, guildID string) float64 {
+	exp, err := redisClient.ZScore(ScoreGuildKey(guildID), userID).Result()
+	if err != nil {
+		z := redis.Z{Score: 0, Member: userID}
+		redisClient.ZAdd(ScoreGuildKey(guildID), z)
+		return float64(0)
+	}
+	return exp
+}
+
+// DBGiveGuildScore increments a users global exp
+func DBGiveGuildScore(userID string, amt float64, guildID string) error {
+	err := redisClient.ZIncrBy(ScoreGuildKey(guildID), amt, userID).Err()
+	if err != nil {
+		fmt.Println("error incrementing guild exp", err.Error())
+		return err
+	}
+	return nil
+}
+
 func calcBiteRate(density float32) (rate float32) {
 	if density == 100 {
 		rate = .50

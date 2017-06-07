@@ -33,11 +33,17 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	bite := DBGetBiteRate(msg.Author.ID)
 	loc := DBGetLocation(msg.Author.ID)
 	density, err := DBGetSetLocDensity(loc, msg.Author.ID)
-	bite := DBGetBiteRate(msg.Author.ID)
+	exp := DBGetGlobalExp(msg.Author.ID)
+	go DBGiveGlobalExp(msg.Author.ID, 1)
 
-	fmt.Fprintf(w, "%v fishing in %v \n %+v \n biterate: %v", msg.Author.Username, loc, density, bite)
+	fmt.Fprintf(w,
+		"%v fishing in %v \n"+
+			"%+v \n"+
+			"biterate: %v\n"+
+			"exp: %v", msg.Author.Username, loc, density, bite, exp)
 
 	go DBSetRateLimit("fishy", msg.Author.ID, 10*time.Second)
 	// if err != nil {
