@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis"
+	"github.com/mitchellh/mapstructure"
 )
 
 var redisClient *redis.Client
@@ -160,6 +161,64 @@ func DBGetLocation(userID string) string {
 //
 func DBSetLocation(userID string, loc string) error {
 	return redisClient.Set(LocationKey(userID), loc, 0).Err()
+}
+
+//
+func DBGetBiteRate(userID string) float32 {
+	loc := DBGetLocation(userID)
+	locDen, _ := DBGetLocDensity(userID)
+
+	switch loc {
+	case "lake":
+		return calcBiteRate(float32(locDen.Lake))
+
+	case "river":
+		return calcBiteRate(float32(locDen.River))
+
+	case "ocean":
+		return calcBiteRate(float32(locDen.Ocean))
+	}
+	return 0
+}
+
+//
+func DBGetInventory(userID string) UserItems {
+	var items UserItems
+	key := InventoryKey(userID)
+	if exists := redisClient.Exists(key); exists.Val() == int64(1) {
+		keys, err := redisClient.HGetAll(key).Result()
+		if err != nil {
+			fmt.Println("error getting key ", err.Error())
+			return UserItems{}
+		}
+		err = mapstructure.Decode(keys, &items)
+		if err != nil {
+			fmt.Println("error decoding map", err.Error())
+			return UserItems{}
+		}
+		return items
+	}
+	defaultInv := map[string]interface{}{"bait": -1, "rod": -1, "hook": -1, "vehicle": -1, "bait_box": -1}
+	redisClient.HMSet(key, defaultInv)
+	return UserItems{-1, -1, -1, -1, -1}
+}
+
+func calcBiteRate(density float32) (rate float32) {
+	if density == 100 {
+		rate = .50
+		return
+	}
+
+	if density < 100 {
+		rate = ((float32(0.4) * density) + 10.0) / 100.0
+		return
+	}
+
+	if density > 100 {
+		rate = ((float32(0.25) * density) + 25.0) / 100.0
+		return
+	}
+	return
 }
 
 func marshalAndSet(data interface{}, key string, expiration time.Duration) error {

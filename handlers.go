@@ -25,6 +25,7 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 	err := readAndUnmarshal(r.Body, &msg)
 	if err != nil {
 		fmt.Println("Error reading and unmarshaling request", err.Error())
+		return
 	}
 	rl, timeLeft := DBCheckRateLimit("fishy", msg.Author.ID)
 	if rl {
@@ -34,8 +35,9 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 
 	loc := DBGetLocation(msg.Author.ID)
 	density, err := DBGetSetLocDensity(loc, msg.Author.ID)
+	bite := DBGetBiteRate(msg.Author.ID)
 
-	fmt.Fprintf(w, "%v fishing in %v \n %+v", msg.Author.Username, loc, density)
+	fmt.Fprintf(w, "%v fishing in %v \n %+v \n biterate: %v", msg.Author.Username, loc, density, bite)
 
 	go DBSetRateLimit("fishy", msg.Author.ID, 10*time.Second)
 	// if err != nil {
@@ -47,7 +49,10 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 // Inventory is the main route for getting a user's item inventory
 func Inventory(w http.ResponseWriter, r *http.Request) {
 	go DBCmdStats("inventory")
+	var vars = mux.Vars(r)
+	var user = vars["userID"]
 
+	json.NewEncoder(w).Encode(DBGetInventory(user))
 }
 
 // Location is the main route for changing or getting a user's location
