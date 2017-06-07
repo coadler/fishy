@@ -192,13 +192,23 @@ type ConfigData struct {
 	} `json:"redis"`
 }
 
+// LevelData holds the data for tier requirements
+type LevelData struct {
+	T1 int `json:"t1"`
+	T2 int `json:"t2"`
+	T3 int `json:"t3"`
+	T4 int `json:"t4"`
+	T5 int `json:"t5"`
+}
+
 var (
 	Fish   FishData
 	Items  ItemData
 	Config ConfigData
+	Levels LevelData
 
-	files   = []string{"json/fish.json", "json/items.json", "config.json"}
-	structs = []interface{}{&Fish, &Items, &Config}
+	files   = []string{"json/fish.json", "json/items.json", "config.json", "json/levels.json"}
+	structs = []interface{}{&Fish, &Items, &Config, &Levels}
 )
 
 func GetConfigs() {

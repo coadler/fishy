@@ -12,7 +12,7 @@
 
 # requirements
 * Go, preferrably 1.8 or above
-* `github.com/iopred/discordgo`, `github.com/gorilla/mux`, `github.com/gorilla/websocket`
+* `github.com/iopred/discordgo`, `github.com/gorilla/mux`, `github.com/gorilla/websocket`, `github.com/mitchellh/mapstructure`
 * A Redis database
 
 # contributors
