@@ -163,11 +163,11 @@ type ItemData struct {
 
 // UserItems holds the JSON structure for a users items
 type UserItems struct {
-	Bait    int `json:"bait"`
-	Rod     int `json:"rod"`
-	Hook    int `json:"hook"`
-	Vehicle int `json:"vehicle"`
-	BaitBox int `json:"bait_box"`
+	Bait    string `json:"bait"`
+	Rod     string `json:"rod"`
+	Hook    string `json:"hook"`
+	Vehicle string `json:"vehicle"`
+	BaitBox string `json:"baitbox"`
 }
 
 // UserLocDensity stores the location density for each user
@@ -177,7 +177,7 @@ type UserLocDensity struct {
 	Ocean int `json:"ocean"`
 }
 
-//
+// LocationResponse holds the JSON structure for the location endpoint
 type LocationResponse struct {
 	Location string `json:"location"`
 	Error    bool   `json:"error"`
@@ -199,6 +199,18 @@ type LevelData struct {
 	T3 int `json:"t3"`
 	T4 int `json:"t4"`
 	T5 int `json:"t5"`
+}
+
+// BuyItemRequest holds the request structure for buying an item
+type BuyItemRequest struct {
+	Item string `json:"item"`
+	Tier string `json:"tier"`
+}
+
+//
+type BuyItemResponse struct {
+	UserItems
+	Error bool `json:"error"`
 }
 
 var (

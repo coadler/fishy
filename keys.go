@@ -6,5 +6,6 @@ var (
 	InventoryKey   = func(userID string) string { return "user:inventory:" + userID }
 	RateLimitKey   = func(cmd string, userID string) string { return "ratelimit:" + cmd + ":" + userID }
 	ScoreGuildKey  = func(guildID string) string { return "exp:guild:" + guildID }
+	BlackListKey   = func(userID string) string { return "user:blacklist:" + userID }
 	ScoreGlobalKey = "exp:global"
 )

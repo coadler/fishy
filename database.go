@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/go-redis/redis"
@@ -181,7 +183,7 @@ func DBGetBiteRate(userID string) float32 {
 	return 0
 }
 
-//
+// DBGetInventory returns a users inventory tiers
 func DBGetInventory(userID string) UserItems {
 	var items UserItems
 	key := InventoryKey(userID)
@@ -198,9 +200,9 @@ func DBGetInventory(userID string) UserItems {
 		}
 		return items
 	}
-	defaultInv := map[string]interface{}{"bait": -1, "rod": -1, "hook": -1, "vehicle": -1, "bait_box": -1}
+	defaultInv := map[string]interface{}{"bait": "0", "rod": "0", "hook": "0", "vehicle": "0", "baitbox": "0"}
 	redisClient.HMSet(key, defaultInv)
-	return UserItems{-1, -1, -1, -1, -1}
+	return UserItems{"0", "0", "0", "0", "0"}
 }
 
 // DBGetGlobalScore gets a users global xp for a specific user
@@ -243,6 +245,91 @@ func DBGiveGuildScore(userID string, amt float64, guildID string) error {
 		return err
 	}
 	return nil
+}
+
+// DBGetItemTier gets a users specific item tier
+func DBGetItemTier(userID string, item string) error {
+	return redisClient.HMGet(InventoryKey(userID), item).Err()
+}
+
+// DBEditItemTier changes a users item tier unsafely (without checking for tier progression)
+func DBEditItemTier(userID string, item string, tier string) error {
+	return redisClient.HSet(InventoryKey(userID), item, tier).Err()
+}
+
+// DBEditItemTiersSafe changes a users item tiers and checks for progression
+func DBEditItemTiersSafe(userID string, tiers map[string]string) error {
+	var err error
+	v := reflect.ValueOf(DBGetInventory(userID))
+	typ := v.Type()
+	for i := 0; i < v.NumField(); i++ {
+		for item, tier := range tiers {
+			fi := typ.Field(i)
+			if tagv := fi.Tag.Get("json"); tagv == item {
+				currentTier, _ := strconv.Atoi(v.Field(i).Interface().(string))
+				newTier, _ := strconv.Atoi(tier)
+				if currentTier != newTier-1 {
+					return errors.New("User does not own prior tier of " + item)
+				}
+				err = DBEditItemTier(userID, item, tier)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return errors.New("Item not found")
+}
+
+// DBEditItemTiersUnsafe changes a users item tiers and does not check for progression
+func DBEditItemTiersUnsafe(userID string, tiers map[string]string) error {
+	var err error
+	v := reflect.ValueOf(DBGetInventory(userID))
+	typ := v.Type()
+	for i := 0; i < v.NumField(); i++ {
+		for item, tier := range tiers {
+			fi := typ.Field(i)
+			if tagv := fi.Tag.Get("json"); tagv == item {
+				err = DBEditItemTier(userID, item, tier)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return errors.New("Item not found")
+}
+
+// DBCheckInventory returns a list of items a user does not own that you can't fish without
+func DBCheckInventory(userID string) []string {
+	var items []string
+	inv := redisClient.HGetAll(InventoryKey(userID)).Val()
+	for k, v := range inv {
+		if v == "0" {
+			if k == "rod" || k == "hook" {
+				items = append(items, k)
+			}
+		}
+	}
+	return items
+}
+
+// DBBlackListUser sfsafd
+func DBBlackListUser(userID string) {
+	redisClient.Set(BlackListKey(userID), "", 0)
+}
+
+// DBUnblackListUser sfsafd
+func DBUnblackListUser(userID string) {
+	redisClient.Del(BlackListKey(userID), "")
+}
+
+// GBCheckBlacklist checks if a user is blacklisted
+func DBCheckBlacklist(userID string) bool {
+	if exists := redisClient.Exists(BlackListKey(userID)); exists.Val() == int64(1) {
+		return true
+	}
+	return false
 }
 
 func calcBiteRate(density float32) (rate float32) {

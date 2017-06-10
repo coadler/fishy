@@ -14,3 +14,4 @@ json/levels.json
 
 # vscode
 .vscode
+\.DS_Store

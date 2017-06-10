@@ -40,7 +40,7 @@ var routes = Routes{
 	},
 	Route{
 		"SetLocation",
-		"PATCH",
+		"PUT",
 		"/v1/location/{userID}/{loc}",
 		Location,
 	},
@@ -49,5 +49,23 @@ var routes = Routes{
 		"GET",
 		"/v1/inventory/{userID}",
 		Inventory,
+	},
+	Route{
+		"SetItem",
+		"POST",
+		"/v1/inventory/{userID}",
+		BuyItem,
+	},
+	Route{
+		"Blacklist",
+		"GET",
+		"/v1/blacklist/{userID}",
+		Blacklist,
+	},
+	Route{
+		"Unblacklist",
+		"DELETE",
+		"/v1/blacklist/{userID}",
+		Unblacklist,
 	},
 }
