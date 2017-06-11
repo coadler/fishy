@@ -68,4 +68,16 @@ var routes = Routes{
 		"/v1/blacklist/{userID}",
 		Unblacklist,
 	},
+	Route{
+		"Gather bait",
+		"POST",
+		"/v1/gather/{userID}",
+		StartGatherBait,
+	},
+	Route{
+		"Gather bait",
+		"GET",
+		"/v1/gather/{userID}",
+		CheckGatherBait,
+	},
 }

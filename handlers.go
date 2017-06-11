@@ -6,7 +6,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/iopred/discordgo"
@@ -31,13 +30,18 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "you're blacklisted muahahahahhahah")
 		return
 	}
+	gathering, timeLeft := DBCheckGatherBait(msg.Author.ID)
+	if gathering {
+		fmt.Fprintf(w, "You are currently gathering bait! Please wait %v to finish gathering your bait", timeLeft.String())
+		return
+	}
 	rl, timeLeft := DBCheckRateLimit("fishy", msg.Author.ID)
 	if rl {
 		fmt.Fprint(w, "Please wait ", timeLeft.String(), " before fishing again!")
 		return
 	}
 	inv := DBGetInventory(msg.Author.ID)
-	noinv := DBCheckInventory(msg.Author.ID)
+	noinv := DBCheckMissingInventory(msg.Author.ID)
 	if len(noinv) > 0 {
 		fmt.Fprintf(w,
 			"You do not own the correct equipment for fishing\n"+
@@ -59,7 +63,7 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 			"own: %+v\n"+
 			"have not bought: %v", msg.Author.Username, loc, density, bite, score, inv, noinv)
 
-	go DBSetRateLimit("fishy", msg.Author.ID, 10*time.Second)
+	go DBSetRateLimit("fishy", msg.Author.ID, FishyTimeout)
 }
 
 // Inventory is the main route for getting a user's item inventory
@@ -130,6 +134,17 @@ func Blacklist(w http.ResponseWriter, r *http.Request) {
 func Unblacklist(w http.ResponseWriter, r *http.Request) {
 	DBUnblackListUser(mux.Vars(r)["userID"])
 	fmt.Fprintf(w, "sad to see you go...")
+}
+
+// StartGatherBait starts the timeout for gathering bait
+func StartGatherBait(w http.ResponseWriter, r *http.Request) {
+	DBStartGatherBait(mux.Vars(r)["userID"])
+	fmt.Fprint(w, ":ok_hand: you decide to spend the next 6 hours filling up your bait box with bait")
+}
+
+// CheckGatherBait checks to see if a user is still gathering bait and will return the time remaining
+func CheckGatherBait(w http.ResponseWriter, r *http.Request) {
+
 }
 
 func readAndUnmarshal(data io.Reader, fmt interface{}) error {

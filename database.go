@@ -39,7 +39,7 @@ func DBGetLocDensity(userID string) (UserLocDensity, error) {
 	var LocDensity UserLocDensity
 	key := LocDensityKey(userID)
 	// check to see if key exists in db (true == exists, false == doesn't exist)
-	if exists := redisClient.Exists(key); exists.Val() == int64(1) {
+	if keyExists(key) {
 		// get key
 		cmd := redisClient.Get(key).Val()
 		// map key's stored JSON to the UserLocDensity struct
@@ -146,7 +146,7 @@ func DBSetRateLimit(cmd string, userID string, ttl time.Duration) error {
 	return nil
 }
 
-//
+// DBGetLocation returns a users current location
 func DBGetLocation(userID string) string {
 	key := LocationKey(userID)
 	cmd, err := redisClient.Get(key).Result()
@@ -160,12 +160,12 @@ func DBGetLocation(userID string) string {
 	return cmd
 }
 
-//
+// DBSetLocation sets a users location
 func DBSetLocation(userID string, loc string) error {
 	return redisClient.Set(LocationKey(userID), loc, 0).Err()
 }
 
-//
+// DBGetBiteRate returns the biterate for a given user
 func DBGetBiteRate(userID string) float32 {
 	loc := DBGetLocation(userID)
 	locDen, _ := DBGetLocDensity(userID)
@@ -187,7 +187,7 @@ func DBGetBiteRate(userID string) float32 {
 func DBGetInventory(userID string) UserItems {
 	var items UserItems
 	key := InventoryKey(userID)
-	if exists := redisClient.Exists(key); exists.Val() == int64(1) {
+	if DBInventoryExists(userID) {
 		keys, err := redisClient.HGetAll(key).Result()
 		if err != nil {
 			fmt.Println("error getting key ", err.Error())
@@ -200,9 +200,17 @@ func DBGetInventory(userID string) UserItems {
 		}
 		return items
 	}
-	defaultInv := map[string]interface{}{"bait": "0", "rod": "0", "hook": "0", "vehicle": "0", "baitbox": "0"}
-	redisClient.HMSet(key, defaultInv)
 	return UserItems{"0", "0", "0", "0", "0"}
+}
+
+// DBInventoryExists makes sure a user has an inventory key before modifying it
+func DBInventoryExists(userID string) bool {
+	key := InventoryKey(userID)
+	if keyExists(key) {
+		redisClient.HMSet(key, map[string]interface{}{"bait": "0", "rod": "0", "hook": "0", "vehicle": "0", "baitbox": "0"})
+		return false
+	}
+	return true
 }
 
 // DBGetGlobalScore gets a users global xp for a specific user
@@ -249,16 +257,19 @@ func DBGiveGuildScore(userID string, amt float64, guildID string) error {
 
 // DBGetItemTier gets a users specific item tier
 func DBGetItemTier(userID string, item string) error {
+	DBInventoryExists(userID)
 	return redisClient.HMGet(InventoryKey(userID), item).Err()
 }
 
 // DBEditItemTier changes a users item tier unsafely (without checking for tier progression)
 func DBEditItemTier(userID string, item string, tier string) error {
+	DBInventoryExists(userID)
 	return redisClient.HSet(InventoryKey(userID), item, tier).Err()
 }
 
 // DBEditItemTiersSafe changes a users item tiers and checks for progression
 func DBEditItemTiersSafe(userID string, tiers map[string]string) error {
+	DBInventoryExists(userID)
 	var err error
 	v := reflect.ValueOf(DBGetInventory(userID))
 	typ := v.Type()
@@ -283,6 +294,7 @@ func DBEditItemTiersSafe(userID string, tiers map[string]string) error {
 
 // DBEditItemTiersUnsafe changes a users item tiers and does not check for progression
 func DBEditItemTiersUnsafe(userID string, tiers map[string]string) error {
+	DBInventoryExists(userID)
 	var err error
 	v := reflect.ValueOf(DBGetInventory(userID))
 	typ := v.Type()
@@ -300,8 +312,9 @@ func DBEditItemTiersUnsafe(userID string, tiers map[string]string) error {
 	return errors.New("Item not found")
 }
 
-// DBCheckInventory returns a list of items a user does not own that you can't fish without
-func DBCheckInventory(userID string) []string {
+// DBCheckMissingInventory returns a list of items a user does not own that you can't fish without
+func DBCheckMissingInventory(userID string) []string {
+	DBInventoryExists(userID)
 	var items []string
 	inv := redisClient.HGetAll(InventoryKey(userID)).Val()
 	for k, v := range inv {
@@ -324,12 +337,28 @@ func DBUnblackListUser(userID string) {
 	redisClient.Del(BlackListKey(userID), "")
 }
 
-// GBCheckBlacklist checks if a user is blacklisted
+// DBCheckBlacklist checks if a user is blacklisted
 func DBCheckBlacklist(userID string) bool {
-	if exists := redisClient.Exists(BlackListKey(userID)); exists.Val() == int64(1) {
-		return true
+	return keyExists(BlackListKey(userID))
+}
+
+// DBStartGatherBait starts the bait gathering timeout
+func DBStartGatherBait(userID string) error {
+	return redisClient.Set(GatherBaitKey(userID), "", GatherBaitTimeout).Err()
+}
+
+// DBCheckGatherBait checks to see whether or not a user is currently gathering bait
+func DBCheckGatherBait(userID string) (bool, time.Duration) {
+	key := GatherBaitKey(userID)
+	timeRemaining := redisClient.TTL(key).Val()
+	if time.Duration(0)*time.Second >= timeRemaining {
+		return false, time.Duration(0)
 	}
-	return false
+	return true, timeRemaining
+}
+
+func keyExists(key string) bool {
+	return redisClient.Exists(key).Val() == int64(1)
 }
 
 func calcBiteRate(density float32) (rate float32) {
