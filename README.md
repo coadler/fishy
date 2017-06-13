@@ -12,16 +12,14 @@
 
 # requirements
 * Go, preferrably 1.8 or above
-* `github.com/iopred/discordgo`, `github.com/gorilla/mux`, `github.com/gorilla/websocket`, `github.com/mitchellh/mapstructure`
+* `github.com/go-redis/redis`, `github.com/iopred/discordgo`, `github.com/gorilla/mux`, `github.com/gorilla/websocket`, `github.com/mitchellh/mapstructure`
 * A Redis database
 
 # contributors
 * [thy](https://github.com/ThyLeader)
 * [ode](https://github.com/odevine)
-* [vap](https://github.com/Vap0r1ze)
 * maybe you ;)
 
 # want to contribute?
 * Fork this repository, commit, and then send a pull request to the Dev branch. All PRs pointing to the master branch will be closed.
-* Make sure your code passes `go fmt` and GoLint
-* Must pass CI
+* Run your code through `go fmt` and `go vet` before issuing a PR
