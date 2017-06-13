@@ -21,23 +21,36 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 	go DBCmdStats("fishy")
 	var msg *discordgo.Message
 	defer r.Body.Close()
-	err := readAndUnmarshal(r.Body, &msg)
-	if err != nil {
-		fmt.Println("Error reading and unmarshaling request", err.Error())
+	if err := readAndUnmarshal(r.Body, &msg); err != nil {
+		json.NewEncoder(w).Encode(
+			APIResponse{
+				true,
+				fmt.Sprint("Error reading and unmarshaling request"),
+				""})
 		return
 	}
 	if DBCheckBlacklist(msg.Author.ID) {
-		fmt.Fprint(w, "you're blacklisted muahahahahhahah")
+		json.NewEncoder(w).Encode(
+			APIResponse{
+				true,
+				fmt.Sprint(":x: | You have been blacklisted from using fishy"),
+				""})
 		return
 	}
-	gathering, timeLeft := DBCheckGatherBait(msg.Author.ID)
-	if gathering {
-		fmt.Fprintf(w, "You are currently gathering bait! Please wait %v to finish gathering your bait", timeLeft.String())
+	if gathering, timeLeft := DBCheckGatherBait(msg.Author.ID); gathering {
+		json.NewEncoder(w).Encode(
+			APIResponse{
+				true,
+				fmt.Sprintf("You are currently gathering bait! Please wait %v to finish gathering your bait", timeLeft.String()),
+				""})
 		return
 	}
-	rl, timeLeft := DBCheckRateLimit("fishy", msg.Author.ID)
-	if rl {
-		fmt.Fprint(w, "Please wait ", timeLeft.String(), " before fishing again!")
+	if rl, timeLeft := DBCheckRateLimit("fishy", msg.Author.ID); rl {
+		json.NewEncoder(w).Encode(
+			APIResponse{
+				true,
+				fmt.Sprintf("Please wait %v before fishing again!", timeLeft.String()),
+				""})
 		return
 	}
 	inv := DBGetInventory(msg.Author.ID)
@@ -51,17 +64,20 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 
 	bite := DBGetBiteRate(msg.Author.ID)
 	loc := DBGetLocation(msg.Author.ID)
-	density, err := DBGetSetLocDensity(loc, msg.Author.ID)
+	density, _ := DBGetSetLocDensity(loc, msg.Author.ID)
 	score := DBGetGlobalScore(msg.Author.ID)
 	go DBGiveGlobalScore(msg.Author.ID, 1)
 
-	fmt.Fprintf(w,
-		"%v fishing in %v \n"+
-			"%+v \n"+
-			"biterate: %v\n"+
-			"exp: %v\n"+
-			"own: %+v\n"+
-			"have not bought: %v", msg.Author.Username, loc, density, bite, score, inv, noinv)
+	json.NewEncoder(w).Encode(
+		APIResponse{
+			false,
+			"",
+			fmt.Sprintf(
+				"%v fishing in %v \n"+
+					"%+v \n"+
+					"biterate: %v\n"+
+					"exp: %v\n"+
+					"own: %+v", msg.Author.Username, loc, density, bite, score, inv)})
 
 	go DBSetRateLimit("fishy", msg.Author.ID, FishyTimeout)
 }
@@ -69,22 +85,42 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 // Inventory is the main route for getting a user's item inventory
 func Inventory(w http.ResponseWriter, r *http.Request) {
 	go DBCmdStats("inventory:get")
-	json.NewEncoder(w).Encode(DBGetInventory(mux.Vars(r)["userID"]))
+	json.NewEncoder(w).Encode(
+		APIResponse{
+			false,
+			"",
+			DBGetInventory(mux.Vars(r)["userID"])})
 }
 
 // Location is the main route for changing or getting a user's location
 func Location(w http.ResponseWriter, r *http.Request) {
-	var respErr = false
 	var vars = mux.Vars(r)
 	var user = vars["userID"]
 
+	if DBCheckBlacklist(user) {
+		json.NewEncoder(w).Encode(
+			APIResponse{
+				true,
+				fmt.Sprint("User blacklisted"),
+				""})
+		return
+	}
+
 	if r.Method == "GET" { // get location
 		go DBCmdStats("location:get")
-		loc := DBGetLocation(user)
-		if loc == "" {
-			respErr = true
+		if loc := DBGetLocation(user); loc == "" {
+			json.NewEncoder(w).Encode(
+				APIResponse{
+					true,
+					fmt.Sprint("User does not have a location"),
+					""})
+		} else {
+			json.NewEncoder(w).Encode(
+				APIResponse{
+					false,
+					"",
+					loc})
 		}
-		json.NewEncoder(w).Encode(LocationResponse{loc, respErr})
 		return
 	}
 
@@ -92,13 +128,20 @@ func Location(w http.ResponseWriter, r *http.Request) {
 		go DBCmdStats("location:put")
 		var loc = vars["loc"]
 		if err := DBSetLocation(user, loc); err != nil {
-			fmt.Println("Error setting location", err.Error())
-			respErr = true
+			json.NewEncoder(w).Encode(
+				APIResponse{
+					true,
+					fmt.Sprintf("Database error: %v \n"+
+						"Please report this error to the developers", err.Error()),
+					""})
+		} else {
+			json.NewEncoder(w).Encode(
+				APIResponse{
+					false,
+					"",
+					"Location changed successfully"})
 		}
-		json.NewEncoder(w).Encode(LocationResponse{loc, respErr})
-		return
 	}
-
 }
 
 // BuyItem is the route for buying items
@@ -108,17 +151,35 @@ func BuyItem(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	err := readAndUnmarshal(r.Body, &item)
 	if err != nil {
-		fmt.Println("Error reading and unmarshaling request", err.Error())
-		json.NewEncoder(w).Encode(BuyItemResponse{UserItems{}, true})
+		fmt.Println("Error reading and unmarshaling request:", err.Error())
+		json.NewEncoder(w).Encode(
+			APIResponse{
+				true,
+				fmt.Sprint("Error reading and unmarshaling request:", err.Error()),
+				UserItems{}})
 		return
 	}
 
 	user := mux.Vars(r)["userID"]
+
+	if DBCheckBlacklist(user) {
+		json.NewEncoder(w).Encode(
+			APIResponse{
+				true,
+				fmt.Sprint("User blacklisted"),
+				""})
+		return
+	}
+
 	DBGetInventory(user)
 	err = DBEditItemTier(user, item.Item, item.Tier)
 	if err != nil {
 		fmt.Println("error editing item tier", err.Error())
-		json.NewEncoder(w).Encode(BuyItemResponse{UserItems{}, true})
+		json.NewEncoder(w).Encode(
+			APIResponse{
+				true,
+				fmt.Sprint("Error editing item tier:", err.Error()),
+				UserItems{}})
 		return
 	}
 	json.NewEncoder(w).Encode(BuyItemResponse{DBGetInventory(user), false})

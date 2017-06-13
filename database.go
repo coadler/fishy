@@ -234,6 +234,19 @@ func DBGiveGlobalScore(userID string, amt float64) error {
 	return nil
 }
 
+// DBGetGlobalScorePage gets a specific page of global scores
+func DBGetGlobalScorePage(p int) ([]redis.Z, error) {
+	if p == 1 {
+		return redisClient.ZRevRangeWithScores(ScoreGlobalKey, 1, 10).Result()
+	}
+	return redisClient.ZRevRangeWithScores(ScoreGlobalKey, int64(p*10)+1, int64(p+1)*10).Result()
+}
+
+// DBGetGlobalScoreRank returns a users global score ranking
+func DBGetGlobalScoreRank(u string) (int64, error) {
+	return redisClient.ZRevRank(ScoreGlobalKey, u).Result()
+}
+
 // DBGetGuildScore gets a users global xp for a specific user
 func DBGetGuildScore(userID string, guildID string) float64 {
 	exp, err := redisClient.ZScore(ScoreGuildKey(guildID), userID).Result()
@@ -253,6 +266,19 @@ func DBGiveGuildScore(userID string, amt float64, guildID string) error {
 		return err
 	}
 	return nil
+}
+
+// DBGetGuildScorePage gets a specific page of a guilds scores
+func DBGetGuildScorePage(g string, p int) ([]redis.Z, error) {
+	if p == 1 {
+		return redisClient.ZRevRangeWithScores(ScoreGuildKey(g), 1, 10).Result()
+	}
+	return redisClient.ZRevRangeWithScores(ScoreGuildKey(g), int64(p*10)+1, int64(p+1)*10).Result()
+}
+
+// DBGetGuildScoreRank returns a users guild score ranking
+func DBGetGuildScoreRank(u string, g string) (int64, error) {
+	return redisClient.ZRevRank(ScoreGuildKey(g), u).Result()
 }
 
 // DBGetItemTier gets a users specific item tier

@@ -213,6 +213,13 @@ type BuyItemResponse struct {
 	Error bool `json:"error"`
 }
 
+// APIResponse is a standard API response
+type APIResponse struct {
+	Error   bool        `json:"error"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data"`
+}
+
 var (
 	Fish   FishData
 	Items  ItemData
