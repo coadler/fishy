@@ -6,7 +6,10 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
+	"time"
 
+	"github.com/go-redis/redis"
 	"github.com/gorilla/mux"
 	"github.com/iopred/discordgo"
 )
@@ -58,7 +61,7 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 	if len(noinv) > 0 {
 		fmt.Fprintf(w,
 			"You do not own the correct equipment for fishing\n"+
-				"Please buy the following items: %v", noinv)
+				"Please buy the following items: %v", strings.Join(noinv, ", "))
 		return
 	}
 
@@ -92,7 +95,7 @@ func Inventory(w http.ResponseWriter, r *http.Request) {
 			DBGetInventory(mux.Vars(r)["userID"])})
 }
 
-// Location is the main route for changing or getting a user's location
+// Location is the main route for getting and changing or getting a user's location
 func Location(w http.ResponseWriter, r *http.Request) {
 	var vars = mux.Vars(r)
 	var user = vars["userID"]
@@ -182,7 +185,11 @@ func BuyItem(w http.ResponseWriter, r *http.Request) {
 				UserItems{}})
 		return
 	}
-	json.NewEncoder(w).Encode(BuyItemResponse{DBGetInventory(user), false})
+	json.NewEncoder(w).Encode(
+		APIResponse{
+			false,
+			"",
+			DBGetInventory(user)})
 }
 
 // Blacklist blacklists a user from using fishy
@@ -206,6 +213,73 @@ func StartGatherBait(w http.ResponseWriter, r *http.Request) {
 // CheckGatherBait checks to see if a user is still gathering bait and will return the time remaining
 func CheckGatherBait(w http.ResponseWriter, r *http.Request) {
 
+}
+
+// GetLeaderboard gets a specified leaderboard
+func GetLeaderboard(w http.ResponseWriter, r *http.Request) {
+	var data LeaderboardRequest
+	var scores []redis.Z
+	var err error
+	if err := readAndUnmarshal(r.Body, &data); err != nil {
+		json.NewEncoder(w).Encode(
+			APIResponse{
+				true,
+				fmt.Sprint("Request error"),
+				""})
+		return
+	}
+	if data.Global {
+		scores, err = DBGetGlobalScorePage(data.Page)
+		if err != nil {
+			respondError(w, fmt.Sprint("Could not retrieve scores:", err.Error()))
+			return
+		}
+	} else {
+		scores, err = DBGetGuildScorePage(data.GuildID, data.Page)
+		if err != nil {
+			respondError(w, fmt.Sprint("Could not retrieve scores:", err.Error()))
+			return
+		}
+	}
+	l, err := LeaderboardTemp(scores, data.Global, data.User, data.GuildID, data.GuildName)
+	if err != nil {
+		respondError(w, fmt.Sprint("Could not retrieve scores:", err.Error()))
+		return
+	}
+	//fmt.Fprint(w, l)
+	respond(w, l)
+}
+
+//
+func CheckTime(w http.ResponseWriter, r *http.Request) {
+	var morning, night bool
+
+	if CurrentTime.After(Morning1) && CurrentTime.Before(Morning2) {
+		morning = true
+	}
+	if CurrentTime.After(Night1) || CurrentTime.Before(Night2) {
+		night = true
+	}
+
+	respond(w, TimeData{CurrentTime.Format(time.Kitchen), morning, night})
+}
+
+func respond(w http.ResponseWriter, data interface{}) {
+	e := json.NewEncoder(w)
+	e.SetEscapeHTML(false)
+	e.Encode(
+		APIResponse{
+			false,
+			"",
+			data})
+}
+
+func respondError(w http.ResponseWriter, err string) {
+	json.NewEncoder(w).Encode(
+		APIResponse{
+			true,
+			err,
+			""})
 }
 
 func readAndUnmarshal(data io.Reader, fmt interface{}) error {

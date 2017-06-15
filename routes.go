@@ -80,4 +80,16 @@ var routes = Routes{
 		"/v1/gather/{userID}",
 		CheckGatherBait,
 	},
+	Route{
+		"Leaderboard",
+		"POST",
+		"/v1/leaderboard",
+		GetLeaderboard,
+	},
+	Route{
+		"Time",
+		"GET",
+		"/v1/time",
+		CheckTime,
+	},
 }

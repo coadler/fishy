@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
+
+	"github.com/go-redis/redis"
 )
 
 // FishData holds the JSON structure for fish.json
@@ -207,17 +209,36 @@ type BuyItemRequest struct {
 	Tier string `json:"tier"`
 }
 
-//
-type BuyItemResponse struct {
-	UserItems
-	Error bool `json:"error"`
-}
-
 // APIResponse is a standard API response
 type APIResponse struct {
 	Error   bool        `json:"error"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data"`
+}
+
+//
+type LeaderboardRequest struct {
+	Global    bool   `json:"global"`
+	Page      int    `json:"page"`
+	User      string `json:"user"`
+	GuildID   string `json:"guildid,omitempty"`
+	GuildName string `json:"guildname,omitempty"`
+}
+
+//
+type LeaderboardData struct {
+	Scores    []redis.Z
+	Rank      int64
+	Score     float64
+	GuildName string
+	Global    bool
+}
+
+//
+type TimeData struct {
+	Time    string `json:"time"`
+	Morning bool   `json:"morning"`
+	Night   bool   `json:"night"`
 }
 
 var (

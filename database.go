@@ -187,7 +187,7 @@ func DBGetBiteRate(userID string) float32 {
 func DBGetInventory(userID string) UserItems {
 	var items UserItems
 	key := InventoryKey(userID)
-	if DBInventoryExists(userID) {
+	if DBInventoryCheckExists(userID) {
 		keys, err := redisClient.HGetAll(key).Result()
 		if err != nil {
 			fmt.Println("error getting key ", err.Error())
@@ -203,14 +203,14 @@ func DBGetInventory(userID string) UserItems {
 	return UserItems{"0", "0", "0", "0", "0"}
 }
 
-// DBInventoryExists makes sure a user has an inventory key before modifying it
-func DBInventoryExists(userID string) bool {
+// DBInventoryCheckExists makes sure a user has an inventory key before modifying it
+func DBInventoryCheckExists(userID string) bool {
 	key := InventoryKey(userID)
 	if keyExists(key) {
-		redisClient.HMSet(key, map[string]interface{}{"bait": "0", "rod": "0", "hook": "0", "vehicle": "0", "baitbox": "0"})
-		return false
+		return true
 	}
-	return true
+	redisClient.HMSet(key, map[string]interface{}{"bait": "0", "rod": "0", "hook": "0", "vehicle": "0", "baitbox": "0"})
+	return false
 }
 
 // DBGetGlobalScore gets a users global xp for a specific user
@@ -243,8 +243,8 @@ func DBGetGlobalScorePage(p int) ([]redis.Z, error) {
 }
 
 // DBGetGlobalScoreRank returns a users global score ranking
-func DBGetGlobalScoreRank(u string) (int64, error) {
-	return redisClient.ZRevRank(ScoreGlobalKey, u).Result()
+func DBGetGlobalScoreRank(u string) (int64, float64) {
+	return redisClient.ZRevRank(ScoreGlobalKey, u).Val(), redisClient.ZScore(ScoreGlobalKey, u).Val()
 }
 
 // DBGetGuildScore gets a users global xp for a specific user
@@ -277,25 +277,25 @@ func DBGetGuildScorePage(g string, p int) ([]redis.Z, error) {
 }
 
 // DBGetGuildScoreRank returns a users guild score ranking
-func DBGetGuildScoreRank(u string, g string) (int64, error) {
-	return redisClient.ZRevRank(ScoreGuildKey(g), u).Result()
+func DBGetGuildScoreRank(u string, g string) (int64, float64) {
+	return redisClient.ZRevRank(ScoreGuildKey(g), u).Val(), redisClient.ZScore(ScoreGuildKey(g), u).Val()
 }
 
 // DBGetItemTier gets a users specific item tier
 func DBGetItemTier(userID string, item string) error {
-	DBInventoryExists(userID)
+	DBInventoryCheckExists(userID)
 	return redisClient.HMGet(InventoryKey(userID), item).Err()
 }
 
 // DBEditItemTier changes a users item tier unsafely (without checking for tier progression)
 func DBEditItemTier(userID string, item string, tier string) error {
-	DBInventoryExists(userID)
+	DBInventoryCheckExists(userID)
 	return redisClient.HSet(InventoryKey(userID), item, tier).Err()
 }
 
 // DBEditItemTiersSafe changes a users item tiers and checks for progression
 func DBEditItemTiersSafe(userID string, tiers map[string]string) error {
-	DBInventoryExists(userID)
+	DBInventoryCheckExists(userID)
 	var err error
 	v := reflect.ValueOf(DBGetInventory(userID))
 	typ := v.Type()
@@ -320,7 +320,7 @@ func DBEditItemTiersSafe(userID string, tiers map[string]string) error {
 
 // DBEditItemTiersUnsafe changes a users item tiers and does not check for progression
 func DBEditItemTiersUnsafe(userID string, tiers map[string]string) error {
-	DBInventoryExists(userID)
+	DBInventoryCheckExists(userID)
 	var err error
 	v := reflect.ValueOf(DBGetInventory(userID))
 	typ := v.Type()
@@ -340,7 +340,7 @@ func DBEditItemTiersUnsafe(userID string, tiers map[string]string) error {
 
 // DBCheckMissingInventory returns a list of items a user does not own that you can't fish without
 func DBCheckMissingInventory(userID string) []string {
-	DBInventoryExists(userID)
+	DBInventoryCheckExists(userID)
 	var items []string
 	inv := redisClient.HGetAll(InventoryKey(userID)).Val()
 	for k, v := range inv {
