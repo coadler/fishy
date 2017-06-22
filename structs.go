@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
-
-	"github.com/go-redis/redis"
 )
 
 // FishData holds the JSON structure for fish.json
@@ -13,98 +11,98 @@ type FishData struct {
 	Location struct {
 		Lake struct {
 			T1 []struct {
-				Name string   `json:"name"`
-				Size []int    `json:"size"`
-				Time []string `json:"time"`
-				Pun  string   `json:"pun"`
+				Name string `json:"name"`
+				Size []int  `json:"size"`
+				Time *bool  `json:"time"`
+				Pun  string `json:"pun"`
 			} `json:"t1"`
 			T2 []struct {
-				Name string   `json:"name"`
-				Size []int    `json:"size"`
-				Time []string `json:"time"`
-				Pun  string   `json:"pun"`
+				Name string `json:"name"`
+				Size []int  `json:"size"`
+				Time *bool  `json:"time"`
+				Pun  string `json:"pun"`
 			} `json:"t2"`
 			T3 []struct {
-				Name string   `json:"name"`
-				Size []int    `json:"size"`
-				Time []string `json:"time"`
-				Pun  string   `json:"pun"`
+				Name string `json:"name"`
+				Size []int  `json:"size"`
+				Time *bool  `json:"time"`
+				Pun  string `json:"pun"`
 			} `json:"t3"`
 			T4 []struct {
-				Name string   `json:"name"`
-				Size []int    `json:"size"`
-				Time []string `json:"time"`
-				Pun  string   `json:"pun"`
+				Name string `json:"name"`
+				Size []int  `json:"size"`
+				Time *bool  `json:"time"`
+				Pun  string `json:"pun"`
 			} `json:"t4"`
 			T5 []struct {
-				Name string   `json:"name"`
-				Size []int    `json:"size"`
-				Time []string `json:"time"`
-				Pun  string   `json:"pun"`
+				Name string `json:"name"`
+				Size []int  `json:"size"`
+				Time *bool  `json:"time"`
+				Pun  string `json:"pun"`
 			} `json:"t5"`
 		} `json:"lake"`
 		River struct {
 			T1 []struct {
-				Name string   `json:"name"`
-				Size []int    `json:"size"`
-				Time []string `json:"time"`
-				Pun  string   `json:"pun"`
+				Name string `json:"name"`
+				Size []int  `json:"size"`
+				Time *bool  `json:"time"`
+				Pun  string `json:"pun"`
 			} `json:"t1"`
 			T2 []struct {
-				Name string   `json:"name"`
-				Size []int    `json:"size"`
-				Time []string `json:"time"`
-				Pun  string   `json:"pun"`
+				Name string `json:"name"`
+				Size []int  `json:"size"`
+				Time *bool  `json:"time"`
+				Pun  string `json:"pun"`
 			} `json:"t2"`
 			T3 []struct {
-				Name string   `json:"name"`
-				Size []int    `json:"size"`
-				Time []string `json:"time"`
-				Pun  string   `json:"pun"`
+				Name string `json:"name"`
+				Size []int  `json:"size"`
+				Time *bool  `json:"time"`
+				Pun  string `json:"pun"`
 			} `json:"t3"`
 			T4 []struct {
-				Name string   `json:"name"`
-				Size []int    `json:"size"`
-				Time []string `json:"time"`
-				Pun  string   `json:"pun"`
+				Name string `json:"name"`
+				Size []int  `json:"size"`
+				Time *bool  `json:"time"`
+				Pun  string `json:"pun"`
 			} `json:"t4"`
 			T5 []struct {
-				Name string   `json:"name"`
-				Size []int    `json:"size"`
-				Time []string `json:"time"`
-				Pun  string   `json:"pun"`
+				Name string `json:"name"`
+				Size []int  `json:"size"`
+				Time *bool  `json:"time"`
+				Pun  string `json:"pun"`
 			} `json:"t5"`
 		} `json:"river"`
 		Ocean struct {
 			T1 []struct {
-				Name string   `json:"name"`
-				Size []int    `json:"size"`
-				Time []string `json:"time"`
-				Pun  string   `json:"pun"`
+				Name string `json:"name"`
+				Size []int  `json:"size"`
+				Time *bool  `json:"time"`
+				Pun  string `json:"pun"`
 			} `json:"t1"`
 			T2 []struct {
-				Name string   `json:"name"`
-				Size []int    `json:"size"`
-				Time []string `json:"time"`
-				Pun  string   `json:"pun"`
+				Name string `json:"name"`
+				Size []int  `json:"size"`
+				Time *bool  `json:"time"`
+				Pun  string `json:"pun"`
 			} `json:"t2"`
 			T3 []struct {
-				Name string   `json:"name"`
-				Size []int    `json:"size"`
-				Time []string `json:"time"`
-				Pun  string   `json:"pun"`
+				Name string `json:"name"`
+				Size []int  `json:"size"`
+				Time *bool  `json:"time"`
+				Pun  string `json:"pun"`
 			} `json:"t3"`
 			T4 []struct {
-				Name string   `json:"name"`
-				Size []int    `json:"size"`
-				Time []string `json:"time"`
-				Pun  string   `json:"pun"`
+				Name string `json:"name"`
+				Size []int  `json:"size"`
+				Time *bool  `json:"time"`
+				Pun  string `json:"pun"`
 			} `json:"t4"`
 			T5 []struct {
-				Name string   `json:"name"`
-				Size []int    `json:"size"`
-				Time []string `json:"time"`
-				Pun  string   `json:"pun"`
+				Name string `json:"name"`
+				Size []int  `json:"size"`
+				Time *bool  `json:"time"`
+				Pun  string `json:"pun"`
 			} `json:"t5"`
 		} `json:"ocean"`
 	} `json:"location"`
@@ -160,7 +158,7 @@ type ItemData struct {
 		Tier   int    `json:"tier"`
 		Cost   int    `json:"cost"`
 		Effect int    `json:"effect"`
-	} `json:"bait_box"`
+	} `json:"baitbox"`
 }
 
 // UserItems holds the JSON structure for a users items
@@ -227,11 +225,17 @@ type LeaderboardRequest struct {
 
 //
 type LeaderboardData struct {
-	Scores    []redis.Z
+	Scores    []LeaderboardUser
 	Rank      int64
 	Score     float64
 	GuildName string
 	Global    bool
+}
+
+//
+type LeaderboardUser struct {
+	Score  float64
+	Member interface{}
 }
 
 //
@@ -241,14 +245,28 @@ type TimeData struct {
 	Night   bool   `json:"night"`
 }
 
-var (
-	Fish   FishData
-	Items  ItemData
-	Config ConfigData
-	Levels LevelData
+//
+type SecretStrings struct {
+	InvEE []string `json:"invee"`
+}
 
-	files   = []string{"json/fish.json", "json/items.json", "config.json", "json/levels.json"}
-	structs = []interface{}{&Fish, &Items, &Config, &Levels}
+//
+type UserStats struct {
+	Garbage   int     `json:"garbage"`
+	Fish      int     `json:"fish"`
+	AvgLength float32 `json:"avglength"`
+	Casts     int     `json:"casts"`
+}
+
+var (
+	Fish    FishData
+	Items   ItemData
+	Config  ConfigData
+	Levels  LevelData
+	Secrets SecretStrings
+
+	files   = []string{"json/fish.json", "json/items.json", "config.json", "json/levels.json", "json/secretstrings.json"}
+	structs = []interface{}{&Fish, &Items, &Config, &Levels, &Secrets}
 )
 
 func GetConfigs() {

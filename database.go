@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis"
+	"github.com/iopred/discordgo"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -26,7 +27,9 @@ func init() {
 		Password: Config.Redis.Password,
 		DB:       Config.Redis.DB,
 	})
-
+	if err := redisClient.Ping().Err(); err != nil {
+		panic(err)
+	}
 }
 
 // DBCmdStats will increment a given command's stats by 1
@@ -183,6 +186,40 @@ func DBGetBiteRate(userID string) float32 {
 	return 0
 }
 
+//
+func DBGetCatchRate(userID string) (float32, error) {
+	switch redisClient.HGet(InventoryKey(userID), "rod").Val() {
+	case "1":
+		return .50, nil
+	case "2":
+		return .55, nil
+	case "3":
+		return .60, nil
+	case "4":
+		return .70, nil
+	case "5":
+		return .80, nil
+	}
+	return 0, errors.New("Invalid rod tier")
+}
+
+//
+func DBGetFishRate(userID string) (float32, error) {
+	switch redisClient.HGet(InventoryKey(userID), "hook").Val() {
+	case "1":
+		return .50, nil
+	case "2":
+		return .60, nil
+	case "3":
+		return .70, nil
+	case "4":
+		return .80, nil
+	case "5":
+		return .90, nil
+	}
+	return 0, errors.New("Invalid hook tier")
+}
+
 // DBGetInventory returns a users inventory tiers
 func DBGetInventory(userID string) UserItems {
 	var items UserItems
@@ -237,9 +274,9 @@ func DBGiveGlobalScore(userID string, amt float64) error {
 // DBGetGlobalScorePage gets a specific page of global scores
 func DBGetGlobalScorePage(p int) ([]redis.Z, error) {
 	if p == 1 {
-		return redisClient.ZRevRangeWithScores(ScoreGlobalKey, 1, 10).Result()
+		return redisClient.ZRevRangeWithScores(ScoreGlobalKey, 0, 9).Result()
 	}
-	return redisClient.ZRevRangeWithScores(ScoreGlobalKey, int64(p*10)+1, int64(p+1)*10).Result()
+	return redisClient.ZRevRangeWithScores(ScoreGlobalKey, int64(p-1)*10, int64(p*10)-1).Result()
 }
 
 // DBGetGlobalScoreRank returns a users global score ranking
@@ -381,6 +418,65 @@ func DBCheckGatherBait(userID string) (bool, time.Duration) {
 		return false, time.Duration(0)
 	}
 	return true, timeRemaining
+}
+
+// DBTrackUser tracks a name, discriminator and avatar associated with a given user id
+func DBTrackUser(user *discordgo.User) {
+	redisClient.HMSet(UserTrackKey(user.ID), map[string]interface{}{"name": user.Username, "discriminator": user.Discriminator, "avatar": user.Avatar})
+}
+
+//
+func DBGetTrackedUser(userID string) string {
+	user, err := redisClient.HMGet(UserTrackKey(userID), "name", "discriminator").Result()
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%v#%v", user[0], user[1])
+}
+
+// DBIncInvEE [REDACTED]
+func DBIncInvEE(userID string) {
+	redisClient.Incr(NoInvEEKey(userID))
+}
+
+// DBGetInvEE [REDACTED]
+func DBGetInvEE(userID string) int {
+	e, _ := strconv.Atoi(redisClient.Get(NoInvEEKey(userID)).Val())
+	return e
+}
+
+// DBGetGlobalStats gets a users global stats
+func DBGetGlobalStats(userID string) UserStats {
+	var stats UserStats
+	key := GlobalStatsKey(userID)
+	if keyExists(key) {
+		data := redisClient.HGetAll(key).Val()
+		err := mapstructure.Decode(data, &stats)
+		if err != nil {
+			fmt.Println("error decoding map", err.Error())
+			return UserStats{}
+		}
+		return stats
+	}
+	redisClient.HMSet(key, map[string]interface{}{"garbage": "", "fish": "", "avgLength": "", "casts": ""})
+	return UserStats{0, 0, 0, 0}
+}
+
+// DBGetGuildStats gets a users guild stats
+func DBGetGuildStats(userID, guildID string) UserStats {
+	var stats UserStats
+	key := GuildStatsKey(userID, guildID)
+	if keyExists(key) {
+		data := redisClient.HGetAll(key).Val()
+		err := mapstructure.Decode(data, &stats)
+		if err != nil {
+			fmt.Println("error decoding map", err.Error())
+			return UserStats{}
+		}
+		return stats
+	}
+	redisClient.HMSet(key, map[string]interface{}{"garbage": "", "fish": "", "avgLength": "", "casts": ""})
+	return UserStats{0, 0, 0, 0}
 }
 
 func keyExists(key string) bool {

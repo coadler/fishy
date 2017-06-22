@@ -11,6 +11,7 @@ json/userfish.json
 json/useritems.json
 json/userlocationdensity.json
 json/levels.json
+json/secretstrings.json
 
 # vscode
 .vscode

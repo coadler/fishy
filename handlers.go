@@ -5,14 +5,23 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"strings"
 	"time"
+
+	"sort"
+
+	"math"
 
 	"github.com/go-redis/redis"
 	"github.com/gorilla/mux"
 	"github.com/iopred/discordgo"
 )
+
+func init() {
+	rand.Seed(time.Now().UTC().UnixNano())
+}
 
 // Index responds with Hello World so it can easily be tested if the API is running
 func Index(w http.ResponseWriter, r *http.Request) {
@@ -32,6 +41,7 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 				""})
 		return
 	}
+	go DBTrackUser(msg.Author)
 	if DBCheckBlacklist(msg.Author.ID) {
 		json.NewEncoder(w).Encode(
 			APIResponse{
@@ -56,33 +66,68 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 				""})
 		return
 	}
-	inv := DBGetInventory(msg.Author.ID)
+	//inv := DBGetInventory(msg.Author.ID)
 	noinv := DBCheckMissingInventory(msg.Author.ID)
 	if len(noinv) > 0 {
-		fmt.Fprintf(w,
+		sort.Strings(noinv)
+
+		if i := sort.SearchStrings(noinv, "rod"); i < len(noinv) && noinv[i] == "rod" {
+			DBIncInvEE(msg.Author.ID)
+			a := DBGetInvEE(msg.Author.ID)
+			num := math.Floor(float64(a / 10))
+			respondError(w, Secrets.InvEE[int(num)])
+			if num == float64(len(Secrets.InvEE))-1 {
+				DBEditItemTier(msg.Author.ID, "rod", "1")
+				DBEditItemTier(msg.Author.ID, "hook", "1")
+			}
+			return
+		}
+		if i := sort.SearchStrings(noinv, "hook"); i < len(noinv) && noinv[i] == "hook" {
+			respondError(w, fmt.Sprint(
+				"You cast your line but it just sits on the surface\n"+
+					"*Something inside of you thinks that fish won't bite without a hook...*"))
+			return
+		}
+		respondError(w, fmt.Sprintf(
 			"You do not own the correct equipment for fishing\n"+
-				"Please buy the following items: %v", strings.Join(noinv, ", "))
+				"Please buy the following items: %v", strings.Join(noinv, ", ")))
 		return
 	}
 
 	bite := DBGetBiteRate(msg.Author.ID)
+	catch, err := DBGetCatchRate(msg.Author.ID)
+	if err != nil {
+		respondError(w, err.Error())
+	}
+	fish, err := DBGetFishRate(msg.Author.ID)
+	if err != nil {
+		respondError(w, err.Error())
+	}
 	loc := DBGetLocation(msg.Author.ID)
-	density, _ := DBGetSetLocDensity(loc, msg.Author.ID)
-	score := DBGetGlobalScore(msg.Author.ID)
-	go DBGiveGlobalScore(msg.Author.ID, 1)
+	// density, _ := DBGetSetLocDensity(loc, msg.Author.ID)
+	// score := DBGetGlobalScore(msg.Author.ID)
+	fc, e := fishCatch(bite, catch, fish)
 
-	json.NewEncoder(w).Encode(
-		APIResponse{
-			false,
-			"",
-			fmt.Sprintf(
-				"%v fishing in %v \n"+
-					"%+v \n"+
-					"biterate: %v\n"+
-					"exp: %v\n"+
-					"own: %+v", msg.Author.Username, loc, density, bite, score, inv)})
+	if fc {
+		if e == "garbage" {
+			r := rand.Intn(len(Fish.Trash.Regular) - 1)
+			respond(w, fmt.Sprintf(
+				"%v fishing in %v\n"+
+					"you caught %v", msg.Author.Username, loc, Fish.Trash.Regular[r]))
+		}
+		if e == "fish" {
+			go DBGiveGlobalScore(msg.Author.ID, 1)
+			respond(w, fmt.Sprintf(
+				"%v fishing in %v\n"+
+					"you caught a fish!!! woooooooooooo", msg.Author.Username, loc))
+		}
+	} else {
+		respond(w, fmt.Sprintf(
+			"%v fishing in %v\n"+
+				"you didnt catch anything\nfailed on: %v", msg.Author.Username, loc, e))
+	}
 
-	go DBSetRateLimit("fishy", msg.Author.ID, FishyTimeout)
+	//go DBSetRateLimit("fishy", msg.Author.ID, FishyTimeout)
 }
 
 // Inventory is the main route for getting a user's item inventory
@@ -218,7 +263,8 @@ func CheckGatherBait(w http.ResponseWriter, r *http.Request) {
 // GetLeaderboard gets a specified leaderboard
 func GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	var data LeaderboardRequest
-	var scores []redis.Z
+	var s []redis.Z
+	var scores []LeaderboardUser
 	var err error
 	if err := readAndUnmarshal(r.Body, &data); err != nil {
 		json.NewEncoder(w).Encode(
@@ -229,18 +275,22 @@ func GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if data.Global {
-		scores, err = DBGetGlobalScorePage(data.Page)
+		s, err = DBGetGlobalScorePage(data.Page)
 		if err != nil {
 			respondError(w, fmt.Sprint("Could not retrieve scores:", err.Error()))
 			return
 		}
 	} else {
-		scores, err = DBGetGuildScorePage(data.GuildID, data.Page)
+		s, err = DBGetGuildScorePage(data.GuildID, data.Page)
 		if err != nil {
 			respondError(w, fmt.Sprint("Could not retrieve scores:", err.Error()))
 			return
 		}
 	}
+	for _, e := range s {
+		scores = append(scores, LeaderboardUser{e.Score, e.Member})
+	}
+
 	l, err := LeaderboardTemp(scores, data.Global, data.User, data.GuildID, data.GuildName)
 	if err != nil {
 		respondError(w, fmt.Sprint("Could not retrieve scores:", err.Error()))
@@ -280,6 +330,27 @@ func respondError(w http.ResponseWriter, err string) {
 			true,
 			err,
 			""})
+}
+
+func fishCatch(bite, catch, fish float32) (bool, string) {
+	//var b, c, f bool
+	r1 := rand.Float32()
+	r2 := rand.Float32()
+	r3 := rand.Float32()
+	fmt.Println(r1, bite)
+	fmt.Println(r2, catch)
+	fmt.Println(r3, fish)
+
+	if r1 <= bite {
+		if r2 <= catch {
+			if r3 <= fish {
+				return true, "fish"
+			}
+			return true, "garbage"
+		}
+		return false, "catch"
+	}
+	return false, "bite"
 }
 
 func readAndUnmarshal(data io.Reader, fmt interface{}) error {
