@@ -16,3 +16,7 @@ json/secretstrings.json
 # vscode
 .vscode
 \.DS_Store
+
+dump\.rdb
+
+json/trash\.json

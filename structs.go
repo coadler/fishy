@@ -9,111 +9,47 @@ import (
 // FishData holds the JSON structure for fish.json
 type FishData struct {
 	Location struct {
-		Lake struct {
-			T1 []struct {
-				Name string `json:"name"`
-				Size []int  `json:"size"`
-				Time *bool  `json:"time"`
-				Pun  string `json:"pun"`
-			} `json:"t1"`
-			T2 []struct {
-				Name string `json:"name"`
-				Size []int  `json:"size"`
-				Time *bool  `json:"time"`
-				Pun  string `json:"pun"`
-			} `json:"t2"`
-			T3 []struct {
-				Name string `json:"name"`
-				Size []int  `json:"size"`
-				Time *bool  `json:"time"`
-				Pun  string `json:"pun"`
-			} `json:"t3"`
-			T4 []struct {
-				Name string `json:"name"`
-				Size []int  `json:"size"`
-				Time *bool  `json:"time"`
-				Pun  string `json:"pun"`
-			} `json:"t4"`
-			T5 []struct {
-				Name string `json:"name"`
-				Size []int  `json:"size"`
-				Time *bool  `json:"time"`
-				Pun  string `json:"pun"`
-			} `json:"t5"`
+		Lake []struct {
+			Fish []struct {
+				Image string      `json:"image"`
+				Name  string      `json:"name"`
+				Pun   string      `json:"pun"`
+				Size  []int       `json:"size"`
+				Time  interface{} `json:"time"`
+			} `json:"fish"`
 		} `json:"lake"`
-		River struct {
-			T1 []struct {
-				Name string `json:"name"`
-				Size []int  `json:"size"`
-				Time *bool  `json:"time"`
-				Pun  string `json:"pun"`
-			} `json:"t1"`
-			T2 []struct {
-				Name string `json:"name"`
-				Size []int  `json:"size"`
-				Time *bool  `json:"time"`
-				Pun  string `json:"pun"`
-			} `json:"t2"`
-			T3 []struct {
-				Name string `json:"name"`
-				Size []int  `json:"size"`
-				Time *bool  `json:"time"`
-				Pun  string `json:"pun"`
-			} `json:"t3"`
-			T4 []struct {
-				Name string `json:"name"`
-				Size []int  `json:"size"`
-				Time *bool  `json:"time"`
-				Pun  string `json:"pun"`
-			} `json:"t4"`
-			T5 []struct {
-				Name string `json:"name"`
-				Size []int  `json:"size"`
-				Time *bool  `json:"time"`
-				Pun  string `json:"pun"`
-			} `json:"t5"`
-		} `json:"river"`
-		Ocean struct {
-			T1 []struct {
-				Name string `json:"name"`
-				Size []int  `json:"size"`
-				Time *bool  `json:"time"`
-				Pun  string `json:"pun"`
-			} `json:"t1"`
-			T2 []struct {
-				Name string `json:"name"`
-				Size []int  `json:"size"`
-				Time *bool  `json:"time"`
-				Pun  string `json:"pun"`
-			} `json:"t2"`
-			T3 []struct {
-				Name string `json:"name"`
-				Size []int  `json:"size"`
-				Time *bool  `json:"time"`
-				Pun  string `json:"pun"`
-			} `json:"t3"`
-			T4 []struct {
-				Name string `json:"name"`
-				Size []int  `json:"size"`
-				Time *bool  `json:"time"`
-				Pun  string `json:"pun"`
-			} `json:"t4"`
-			T5 []struct {
-				Name string `json:"name"`
-				Size []int  `json:"size"`
-				Time *bool  `json:"time"`
-				Pun  string `json:"pun"`
-			} `json:"t5"`
+		Ocean []struct {
+			Fish []struct {
+				Image string      `json:"image"`
+				Name  string      `json:"name"`
+				Pun   string      `json:"pun"`
+				Size  []int       `json:"size"`
+				Time  interface{} `json:"time"`
+			} `json:"fish"`
 		} `json:"ocean"`
+		River []struct {
+			Fish []struct {
+				Image string      `json:"image"`
+				Name  string      `json:"name"`
+				Pun   string      `json:"pun"`
+				Size  []int       `json:"size"`
+				Time  interface{} `json:"time"`
+			} `json:"fish"`
+		} `json:"river"`
 	} `json:"location"`
-	Trash struct {
-		Regular  []string `json:"regular"`
-		Treasure []struct {
-			Name        string `json:"name"`
-			Description string `json:"description"`
-			Worth       int    `json:"worth"`
-		} `json:"treasure"`
-	} `json:"trash"`
+}
+
+// TrashData stores the data structure for trash data
+type TrashData struct {
+	Regular struct {
+		Text []string `json:"text"`
+		User []string `json:"user"`
+	} `json:"regular"`
+	Treasure []struct {
+		Description string `json:"description"`
+		Name        string `json:"name"`
+		Worth       int    `json:"worth"`
+	} `json:"treasure"`
 }
 
 // UserFish holds the JSON structure for a users current fish inventory
@@ -256,6 +192,22 @@ type UserStats struct {
 	Fish      int     `json:"fish"`
 	AvgLength float32 `json:"avglength"`
 	Casts     int     `json:"casts"`
+}
+
+//
+type Catch struct {
+	Tier   int     `json:"tier"`
+	Name   string  `json:"name"`
+	Sell   int     `json:"sell"`
+	Length int     `json:"len"`
+	Rand   float64 `json:"rand"`
+}
+
+//
+type CommandStatData struct {
+	Hourly int `json:"hourly"`
+	Daily  int `json:"daily"`
+	Total  int `json:"total"`
 }
 
 var (

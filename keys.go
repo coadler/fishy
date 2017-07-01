@@ -14,8 +14,12 @@ var (
 	UserTrackKey   = func(userID string) string { return "user:" + userID }
 	NoInvEEKey     = func(userID string) string { return "ee:" + userID }
 	GlobalStatsKey = func(userID string) string { return "statistics:global:" + userID }
+	FishInvKey     = func(userID string) string { return "fish:" + userID }
 	GuildStatsKey  = func(userID, guildID string) string { return "statistics:" + guildID + ":" + userID }
 	RateLimitKey   = func(cmd, userID string) string { return "ratelimit:" + cmd + ":" + userID }
+	HourlyCmdTrack = func(cmd string) string { return "tracking:hourly:" + cmd }
+	DailyCmdTrack  = func(cmd string) string { return "tracking:daily:" + cmd }
+	TotalCmdTrack  = func(cmd string) string { return "tracking:total:" + cmd }
 	Morning1       = time.Date(0, 0, 0, 9, 0, 0, 0, time.UTC)
 	Morning2       = time.Date(0, 0, 0, 15, 59, 59, 999, time.UTC)
 	Night1         = time.Date(0, 0, 0, 16, 0, 0, 0, time.UTC)

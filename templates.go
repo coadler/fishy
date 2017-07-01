@@ -9,7 +9,7 @@ import (
 var divider = "-------------------------------------\n"
 var leaderboard = "{{if .Global}} **:earth_americas: | Global Fishy Leaderboards** {{else}} **:cityscape: | Guild Fishy Leaderboards for {{.GuildName}}** {{end}}\n" +
 	"```pl\n📋 Rank | Name\n\n" +
-	"{{range $i, $e := .Scores}}[{{inc $i}}]\t> # {{$e.GetUsername}}\n\t\t\tTotal Points: {{$e.Score}}\n{{else}}:x: | No leaderboards\n{{end}}" +
+	"{{range $i, $e := .Scores}}[{{inc $i}}]\t> # {{$e.GetUsername}}\n\t\t\tTotal Points: {{$e.Score}}\n{{else}}No leaderboards\n{{end}}" +
 	divider +
 	"# Your {{if .Global}}Global{{else}}Guild{{end}} Placing Stats\n" +
 	"😐 Rank: {{inc64 .Rank}}\tTotal Score: {{.Score}}\n```"

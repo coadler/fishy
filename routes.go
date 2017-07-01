@@ -92,4 +92,16 @@ var routes = Routes{
 		"/v1/time",
 		CheckTime,
 	},
+	Route{
+		"Trash",
+		"GET",
+		"/v1/trash",
+		RandTrash,
+	},
+	Route{
+		"Stats",
+		"GET",
+		"/v1/stats",
+		CommandStats,
+	},
 }

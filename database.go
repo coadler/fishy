@@ -32,11 +32,6 @@ func init() {
 	}
 }
 
-// DBCmdStats will increment a given command's stats by 1
-func DBCmdStats(cmd string) *redis.IntCmd {
-	return redisClient.IncrBy("stats:cmds:"+cmd, 1)
-}
-
 // DBGetLocDensity will get current location density or set default if it doesn't exist in the database
 func DBGetLocDensity(userID string) (UserLocDensity, error) {
 	var LocDensity UserLocDensity
@@ -250,7 +245,7 @@ func DBInventoryCheckExists(userID string) bool {
 	return false
 }
 
-// DBGetGlobalScore gets a users global xp for a specific user
+// DBGetGlobalScore gets a users global xp (score) for a specific user
 func DBGetGlobalScore(userID string) float64 {
 	exp, err := redisClient.ZScore(ScoreGlobalKey, userID).Result()
 	if err != nil {
@@ -422,16 +417,27 @@ func DBCheckGatherBait(userID string) (bool, time.Duration) {
 
 // DBTrackUser tracks a name, discriminator and avatar associated with a given user id
 func DBTrackUser(user *discordgo.User) {
-	redisClient.HMSet(UserTrackKey(user.ID), map[string]interface{}{"name": user.Username, "discriminator": user.Discriminator, "avatar": user.Avatar})
+	redisClient.HMSet(UserTrackKey(user.ID), map[string]interface{}{"name": user.Username, "discriminator": user.Discriminator, "avatar": discordgo.EndpointUserAvatar(user.ID, user.Avatar)})
 }
 
-//
+// DBGetTrackedUser returns the username and discriminator of a user
 func DBGetTrackedUser(userID string) string {
 	user, err := redisClient.HMGet(UserTrackKey(userID), "name", "discriminator").Result()
 	if err != nil {
+		fmt.Println("Error retrieving tracked user " + err.Error())
 		return ""
 	}
 	return fmt.Sprintf("%v#%v", user[0], user[1])
+}
+
+// DBGetTrackedUserAvatar returns the URL for the avatar of a tracked user
+func DBGetTrackedUserAvatar(userID string) string {
+	avatar, err := redisClient.HGet(UserTrackKey(userID), "avatar").Result()
+	if err != nil {
+		fmt.Println("Error retrieving tracked user avatar " + err.Error())
+		return ""
+	}
+	return avatar
 }
 
 // DBIncInvEE [REDACTED]
@@ -458,7 +464,7 @@ func DBGetGlobalStats(userID string) UserStats {
 		}
 		return stats
 	}
-	redisClient.HMSet(key, map[string]interface{}{"garbage": "", "fish": "", "avgLength": "", "casts": ""})
+	redisClient.HMSet(key, map[string]interface{}{"garbage": 0, "fish": 0, "avgLength": 0, "casts": 0})
 	return UserStats{0, 0, 0, 0}
 }
 
@@ -475,8 +481,172 @@ func DBGetGuildStats(userID, guildID string) UserStats {
 		}
 		return stats
 	}
-	redisClient.HMSet(key, map[string]interface{}{"garbage": "", "fish": "", "avgLength": "", "casts": ""})
+	redisClient.HMSet(key, map[string]interface{}{"garbage": 0, "fish": 0, "avgLength": 0, "casts": 0})
 	return UserStats{0, 0, 0, 0}
+}
+
+// DBAddGlobalCast adds one to a users global cast stats
+func DBAddGlobalCast(userID string) {
+	err := redisClient.HIncrBy(GlobalStatsKey(userID), "casts", 1).Err()
+	if err != nil {
+		fmt.Println("Error parsing incrementing global casts " + err.Error())
+		return
+	}
+}
+
+// DBAddGuildCast adds one to a users guild cast stats
+func DBAddGuildCast(userID, guildID string) {
+	err := redisClient.HIncrBy(GuildStatsKey(userID, guildID), "casts", 1).Err()
+	if err != nil {
+		fmt.Println("Error parsing incrementing global casts " + err.Error())
+		return
+	}
+}
+
+// DBAddCast adds both guild and global cast stats
+func DBAddCast(userID, guildID string) {
+	go DBAddGlobalCast(userID)
+	go DBAddGuildCast(userID, guildID)
+}
+
+// DBAddGlobalGarbage adds one to a users global garbage stats
+func DBAddGlobalGarbage(userID string) {
+	err := redisClient.HIncrBy(GlobalStatsKey(userID), "garbage", 1).Err()
+	if err != nil {
+		fmt.Println("Error parsing incrementing global garbage " + err.Error())
+		return
+	}
+}
+
+// DBAddGuildGarbage adds one to a users guild garbage stats
+func DBAddGuildGarbage(userID, guildID string) {
+	err := redisClient.HIncrBy(GuildStatsKey(userID, guildID), "casts", 1).Err()
+	if err != nil {
+		fmt.Println("Error parsing incrementing global garbage " + err.Error())
+		return
+	}
+}
+
+// DBAddGarbage adds both guild and global garbage stats
+func DBAddGarbage(userID, guildID string) {
+	go DBAddGlobalGarbage(userID)
+	go DBAddGuildGarbage(userID, guildID)
+}
+
+//
+func DBIncrGlobalAvgFishStats(userID string, len float64) {
+	key := GlobalStatsKey(userID)
+	totF, err := strconv.ParseFloat(redisClient.HGet(key, "fish").Val(), 64)
+	if err != nil {
+		fmt.Println("Error parsing total fish " + err.Error())
+		return
+	}
+	avg, err := strconv.ParseFloat(redisClient.HGet(key, "avgLength").Val(), 64)
+	if err != nil {
+		fmt.Println("Error parsing avg fish length " + err.Error())
+		return
+	}
+	totL := totF * avg
+	totF++
+	totL += len
+	avg = totL / totF
+
+	err = redisClient.HSet(key, "fish", totF).Err()
+	if err != nil {
+		fmt.Println("Error setting new value " + err.Error())
+		return
+	}
+	err = redisClient.HSet(key, "avgLength", avg).Err()
+	if err != nil {
+		fmt.Println("Error setting new value " + err.Error())
+		return
+	}
+}
+
+//
+func DBIncrGuildAvgFishStats(userID, guildID string, len float64) {
+	key := GuildStatsKey(userID, guildID)
+	totF, err := strconv.ParseFloat(redisClient.HGet(key, "fish").Val(), 64)
+	if err != nil {
+		fmt.Println("Error parsing total fish " + err.Error())
+		return
+	}
+	avg, err := strconv.ParseFloat(redisClient.HGet(key, "avgLength").Val(), 64)
+	if err != nil {
+		fmt.Println("Error parsing avg fish length " + err.Error())
+		return
+	}
+	totL := totF * avg
+	totF++
+	totL += len
+	avg = totL / totF
+
+	err = redisClient.HSet(key, "fish", totF).Err()
+	if err != nil {
+		fmt.Println("Error setting new value " + err.Error())
+		return
+	}
+	err = redisClient.HSet(key, "avgLength", avg).Err()
+	if err != nil {
+		fmt.Println("Error setting new value " + err.Error())
+		return
+	}
+}
+
+// DBIncrAvgFishStats increments guild and global fish stats
+func DBIncrAvgFishStats(userID, guildID string, len float64) {
+	go DBIncrGlobalAvgFishStats(userID, len)
+	go DBIncrGuildAvgFishStats(userID, guildID, len)
+}
+
+// DBGetFishInv returns an array of catches, representing a user's fish inventory
+func DBGetFishInv(userID string) []Catch {
+	var f Catch
+	var allFish []Catch
+	fish := redisClient.SMembers(FishInvKey(userID)).Val()
+	for _, e := range fish {
+		json.Unmarshal([]byte(e), &f)
+		allFish = append(allFish, f)
+	}
+	return allFish
+}
+
+//
+func DBAddFishToInv(userID string, fish Catch) {
+	newFish, _ := json.Marshal(fish)
+	redisClient.SAdd(FishInvKey(userID), newFish)
+}
+
+//
+func DBGetInvSize(userID string) int {
+	return int(redisClient.SCard(FishInvKey(userID)).Val())
+}
+
+//
+func DBGetCmdStats(cmd string) (CommandStatData, error) {
+	hourlyKey := HourlyCmdTrack(cmd)
+	dailyKey := DailyCmdTrack(cmd)
+	hour, err := redisClient.ZCard(hourlyKey).Result()
+	if err != nil {
+		fmt.Println("Error retrieving cmd stats " + err.Error())
+		return CommandStatData{}, err
+	}
+	day, err := redisClient.ZCard(dailyKey).Result()
+	if err != nil {
+		fmt.Println("Error retrieving cmd stats " + err.Error())
+		return CommandStatData{}, err
+	}
+	tot, err := redisClient.Get(TotalCmdTrack(cmd)).Result()
+	if err != nil {
+		fmt.Println("Error retrieving cmd stats " + err.Error())
+		return CommandStatData{}, err
+	}
+	totS, err := strconv.Atoi(tot)
+	if err != nil {
+		fmt.Println("Error converting cmd stats to int " + err.Error())
+		return CommandStatData{}, err
+	}
+	return CommandStatData{int(hour), int(day), totS}, nil
 }
 
 func keyExists(key string) bool {
