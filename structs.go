@@ -212,13 +212,14 @@ type CommandStatData struct {
 
 var (
 	Fish    FishData
+	Trash   TrashData
 	Items   ItemData
 	Config  ConfigData
 	Levels  LevelData
 	Secrets SecretStrings
 
-	files   = []string{"json/fish.json", "json/items.json", "config.json", "json/levels.json", "json/secretstrings.json"}
-	structs = []interface{}{&Fish, &Items, &Config, &Levels, &Secrets}
+	files   = []string{"json/fish.json", "json/items.json", "config.json", "json/levels.json", "json/secretstrings.json", "json/trash.json"}
+	structs = []interface{}{&Fish, &Items, &Config, &Levels, &Secrets, &Trash}
 )
 
 func GetConfigs() {

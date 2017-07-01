@@ -374,8 +374,8 @@ func failed(e string) string {
 }
 
 func randomTrash() string {
-	r := rand.Intn(len(Fish.Trash.Regular) - 1)
-	return Fish.Trash.Regular[r]
+	r := rand.Intn(len(Trash.Regular.Text) - 1)
+	return Trash.Regular.Text[r]
 }
 
 var t1 = 52
