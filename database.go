@@ -218,6 +218,7 @@ func DBGetFishRate(userID string) (float32, error) {
 // DBGetInventory returns a users inventory tiers
 func DBGetInventory(userID string) UserItems {
 	var items UserItems
+	conv := map[string]int{}
 	key := InventoryKey(userID)
 	if DBInventoryCheckExists(userID) {
 		keys, err := redisClient.HGetAll(key).Result()
@@ -225,14 +226,21 @@ func DBGetInventory(userID string) UserItems {
 			fmt.Println("error getting key ", err.Error())
 			return UserItems{}
 		}
-		err = mapstructure.Decode(keys, &items)
+		for i, e := range keys {
+			conv[i], err = strconv.Atoi(e)
+			if err != nil {
+				fmt.Println("Error converting tier to int " + err.Error())
+				return UserItems{}
+			}
+		}
+		err = mapstructure.Decode(conv, &items)
 		if err != nil {
 			fmt.Println("error decoding map", err.Error())
 			return UserItems{}
 		}
 		return items
 	}
-	return UserItems{"0", "0", "0", "0", "0"}
+	return UserItems{0, 0, 0, 0, 0}
 }
 
 // DBInventoryCheckExists makes sure a user has an inventory key before modifying it
@@ -241,7 +249,7 @@ func DBInventoryCheckExists(userID string) bool {
 	if keyExists(key) {
 		return true
 	}
-	redisClient.HMSet(key, map[string]interface{}{"bait": "0", "rod": "0", "hook": "0", "vehicle": "0", "baitbox": "0"})
+	redisClient.HMSet(key, map[string]interface{}{"bait": 0, "rod": 0, "hook": 0, "vehicle": 0, "baitbox": 0})
 	return false
 }
 
@@ -314,9 +322,14 @@ func DBGetGuildScoreRank(u string, g string) (int64, float64) {
 }
 
 // DBGetItemTier gets a users specific item tier
-func DBGetItemTier(userID string, item string) error {
+func DBGetItemTier(userID string, item string) int {
 	DBInventoryCheckExists(userID)
-	return redisClient.HMGet(InventoryKey(userID), item).Err()
+	tier, err := strconv.Atoi(redisClient.HGet(InventoryKey(userID), item).Val())
+	if err != nil {
+		fmt.Println("Error converting item tier to int " + err.Error())
+		return 0
+	}
+	return tier
 }
 
 // DBEditItemTier changes a users item tier unsafely (without checking for tier progression)
@@ -600,26 +613,173 @@ func DBIncrAvgFishStats(userID, guildID string, len float64) {
 }
 
 // DBGetFishInv returns an array of catches, representing a user's fish inventory
-func DBGetFishInv(userID string) []Catch {
-	var f Catch
-	var allFish []Catch
-	fish := redisClient.SMembers(FishInvKey(userID)).Val()
-	for _, e := range fish {
-		json.Unmarshal([]byte(e), &f)
-		allFish = append(allFish, f)
+func DBGetFishInv(userID string) FishInv {
+	key := FishInvKey(userID)
+	if !keyExists(key) {
+		redisClient.HMSet(key, map[string]interface{}{"fish": 0, "garbage": 0, "legendaries": 0, "worth": 0})
+		return FishInv{0, 0, 0, 0}
 	}
-	return allFish
+	var inv FishInv
+	keys := redisClient.HGetAll(key).Val()
+	mapstructure.Decode(keys, &inv)
+	return inv
 }
 
 //
-func DBAddFishToInv(userID string, fish Catch) {
-	newFish, _ := json.Marshal(fish)
-	redisClient.SAdd(FishInvKey(userID), newFish)
+func DBAddFishToInv(userID, catchType string, worth int) error {
+	key := FishInvKey(userID)
+
+	if DBGetInvSize(userID) <= DBGetInvCapacity(userID) {
+		return errors.New("Inventory full")
+	}
+
+	switch catchType {
+	case "fish":
+		redisClient.HIncrBy(key, "fish", 1)
+	case "garbage":
+		redisClient.HIncrBy(key, "garbage", 1)
+	case "legendary":
+		redisClient.HIncrBy(key, "legendary", 1)
+	}
+	redisClient.HIncrBy(key, "worth", int64(worth))
+	return nil
 }
 
 //
 func DBGetInvSize(userID string) int {
-	return int(redisClient.SCard(FishInvKey(userID)).Val())
+	key := FishInvKey(userID)
+	fish, _ := strconv.Atoi(redisClient.HGet(key, "fish").Val())
+	legendary, _ := strconv.Atoi(redisClient.HGet(key, "legendary").Val())
+	return fish + legendary
+}
+
+//
+func DBGetInvCapacity(userID string) int {
+	cap, err := strconv.Atoi(redisClient.HGet(InventoryKey(userID), "vehicle").Val())
+	if err != nil {
+		fmt.Println("Error converting vehicle tier to int" + err.Error())
+		return 0
+	}
+	switch cap {
+	case 2:
+		return 50
+	case 3:
+		return 100
+	case 4:
+		return 250
+	case 5:
+		return 500
+	}
+	return 25
+}
+
+//
+func DBGetBaitCapacity(userID string) int {
+	cap, err := strconv.Atoi(redisClient.HGet(InventoryKey(userID), "baitbox").Val())
+	if err != nil {
+		fmt.Println("Error converting bait tier to int" + err.Error())
+		return 0
+	}
+	switch cap {
+	case 2:
+		return 50
+	case 3:
+		return 75
+	case 4:
+		return 100
+	case 5:
+		return 150
+	}
+	return 25
+}
+
+//
+func DBGetBaitInv(userID string) BaitInv {
+	key := BaitInvKey(userID)
+	conv := map[string]int{}
+	var bait BaitInv
+	if keyExists(key) {
+		inv, err := redisClient.HGetAll(key).Result()
+		if err != nil {
+			fmt.Println("Error getting bait inv " + err.Error())
+			return BaitInv{}
+		}
+		for i, e := range inv {
+			b, err := strconv.Atoi(e)
+			if err != nil {
+				fmt.Println("error converting bait to int " + err.Error())
+				return BaitInv{}
+			}
+			conv["t"+i] = b
+		}
+		err = mapstructure.Decode(conv, &bait)
+		if err != nil {
+			fmt.Println("error decoding bait inv map to struct " + err.Error())
+			return BaitInv{}
+		}
+		return bait
+	}
+	fmt.Println("doesnt exist")
+	err := redisClient.HMSet(key, map[string]interface{}{"1": 0, "2": 0, "3": 0, "4": 0, "5": 0}).Err()
+	if err != nil {
+		fmt.Println("error setting default bait inv " + err.Error())
+		return BaitInv{}
+	}
+	return BaitInv{0, 0, 0, 0, 0}
+}
+
+//
+func DBGetBaitUsage(userID string) int {
+	conv := map[string]int{}
+	var bait BaitInv
+	key := BaitInvKey(userID)
+	inv, err := redisClient.HGetAll(key).Result()
+	if err != nil {
+		return 0
+	}
+	for i, e := range inv {
+		b, err := strconv.Atoi(e)
+		if err != nil {
+			fmt.Println("error converting bait to int " + err.Error())
+			return 0
+		}
+		conv[i] = b
+	}
+	err = mapstructure.Decode(conv, &bait)
+	if err != nil {
+		fmt.Println("error decoding bait inv map to struct " + err.Error())
+		return 0
+	}
+	return bait.T1 + bait.T2 + bait.T3 + bait.T4 + bait.T5
+}
+
+//
+func DBAddBait(userID string, tier, amt int) (int64, error) {
+	return redisClient.HIncrBy(BaitInvKey(userID), strconv.Itoa(tier), int64(amt)).Result()
+}
+
+//
+func DBGetCurrentBaitTier(userID string) int {
+	key := BaitTierKey(userID)
+	if keyExists(key) {
+		tier, err := strconv.Atoi(redisClient.Get(key).Val())
+		if err != nil {
+			fmt.Println("Error parsing current bait tier " + err.Error())
+			return 0
+		}
+		return tier
+	}
+	err := redisClient.Set(key, 1, 0).Err()
+	if err != nil {
+		fmt.Println("Error setting current bait tier " + err.Error())
+		return 0
+	}
+	return 1
+}
+
+//
+func DBSetCurrentBaitTier(userID string, tier float64) error {
+	return redisClient.Set(BaitTierKey(userID), tier, 0).Err()
 }
 
 //

@@ -52,15 +52,23 @@ type TrashData struct {
 	} `json:"treasure"`
 }
 
-// UserFish holds the JSON structure for a users current fish inventory
-type UserFish struct {
-	Fish []struct {
-		Location string `json:"location"`
-		Name     string `json:"name"`
-		Price    int    `json:"price"`
-		Size     int    `json:"size"`
-		Tier     int    `json:"tier"`
-	} `json:"fish"`
+// InvFish holds the JSON structure for a singular fish
+type InvFish struct {
+	Location string `json:"location"`
+	Name     string `json:"name"`
+	Price    int    `json:"price"`
+	Size     int    `json:"size"`
+	Tier     int    `json:"tier"`
+	Pun      string `json:"pun"`
+	URL      string `json:"url"`
+}
+
+//
+type FishInv struct {
+	Fish        int `json:"fish"`
+	Garbage     int `json:"garbage"`
+	Legendaries int `json:"legendaries"`
+	Worth       int `json:"worth"`
 }
 
 // ItemData holds the JSON structure for items.json
@@ -99,11 +107,26 @@ type ItemData struct {
 
 // UserItems holds the JSON structure for a users items
 type UserItems struct {
-	Bait    string `json:"bait"`
-	Rod     string `json:"rod"`
-	Hook    string `json:"hook"`
-	Vehicle string `json:"vehicle"`
-	BaitBox string `json:"baitbox"`
+	Bait    int `json:"bait"`
+	Rod     int `json:"rod"`
+	Hook    int `json:"hook"`
+	Vehicle int `json:"vehicle"`
+	BaitBox int `json:"baitbox"`
+}
+
+//
+type BaitInv struct {
+	T1 int `json:"t1"`
+	T2 int `json:"t2"`
+	T3 int `json:"t3"`
+	T4 int `json:"t4"`
+	T5 int `json:"t5"`
+}
+
+//
+type BaitRequest struct {
+	Tier   int `json:"tier"`
+	Amount int `json:"amount"`
 }
 
 // UserLocDensity stores the location density for each user
@@ -192,15 +215,6 @@ type UserStats struct {
 	Fish      int     `json:"fish"`
 	AvgLength float32 `json:"avglength"`
 	Casts     int     `json:"casts"`
-}
-
-//
-type Catch struct {
-	Tier   int     `json:"tier"`
-	Name   string  `json:"name"`
-	Sell   int     `json:"sell"`
-	Length int     `json:"len"`
-	Rand   float64 `json:"rand"`
 }
 
 //

@@ -96,34 +96,94 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 
 	if fc {
 		if e == "garbage" {
-			respond(w, fmt.Sprintf(
-				"%v fishing in %v\n"+
-					"you caught %v", msg.Author.Username, loc, randomTrash()))
+			go DBAddFishToInv(msg.Author.ID, "garbage", 0)
+			respond(w, makeEmbedTrash(msg.Author.Username, loc, randomTrash()))
+
+			// fmt.Sprintf(
+			// 	"%v fishing in %v\n"+
+			// 		"you caught %v", msg.Author.Username, loc, randomTrash()))
 		}
 		if e == "fish" {
 			level := expToTier(DBGetGlobalScore(msg.Author.ID))
+			f := getFish(level, loc)
 			go DBGiveGlobalScore(msg.Author.ID, 1)
-			respond(w, fmt.Sprintf(
-				"%v fishing in %v\n"+
-					"you caught a fish!!! woooooooooooo", msg.Author.Username, loc))
+			go DBAddFishToInv(msg.Author.ID, "fish", f.Price)
+			respond(w, makeEmbedFish(f, msg.Author.Username))
+
+			// fmt.Sprintf(
+			// 	"%v fishing in %v\n"+
+			// 		"you caught a tier %v %v. It is %vcm long and worth %v.\n%s\n%s", msg.Author.Username, loc, f.Tier, f.Name, f.Size, f.Price, f.Pun, f.URL))
 		}
 	} else {
-		respond(w, fmt.Sprintf(
-			"%v fishing in %v\n"+
-				"%v", msg.Author.Username, loc, failed(e)))
+		respond(w, makeEmbedFail(msg.Author.Username, loc, failed(e)))
+
+		// fmt.Sprintf(
+		// 	"%v fishing in %v\n"+
+		// 		"%v", msg.Author.Username, loc, failed(e)))
 	}
 
 	//go DBSetRateLimit("fishy", msg.Author.ID, FishyTimeout)
 }
 
+func makeEmbedFail(user, location, fail string) *discordgo.MessageEmbed {
+	return &discordgo.MessageEmbed{
+		//Thumbnail:   &discordgo.MessageEmbedThumbnail{URL: "https://cdn.discordapp.com/attachments/288505799905378304/332261752777736193/Can.png"},
+		Color:       0xFF0000,
+		Title:       fmt.Sprintf("%s, you were unable to catch anything", user),
+		Description: fail,
+	}
+}
+
+func makeEmbedTrash(user, location, trash string) *discordgo.MessageEmbed {
+	return &discordgo.MessageEmbed{
+		Thumbnail:   &discordgo.MessageEmbedThumbnail{URL: "https://cdn.discordapp.com/attachments/288505799905378304/332261752777736193/Can.png"},
+		Color:       0xffffff,
+		Title:       fmt.Sprintf("%s, you fished up some trash in the %s", user, location),
+		Description: fmt.Sprintf("It's %s", trash),
+	}
+}
+
+func makeEmbedFish(fish InvFish, user string) *discordgo.MessageEmbed {
+	return &discordgo.MessageEmbed{
+		Thumbnail:   &discordgo.MessageEmbedThumbnail{URL: fish.URL},
+		Color:       tierToEmbedColor(fish.Tier),
+		Title:       fmt.Sprintf("%s, you caught a %s in the %s", user, fish.Name, fish.Location),
+		Description: fish.Pun,
+		Fields: []*discordgo.MessageEmbedField{
+			&discordgo.MessageEmbedField{Name: "Length", Value: fmt.Sprint(fish.Size), Inline: false},
+			&discordgo.MessageEmbedField{Name: "Price", Value: fmt.Sprint(fish.Price), Inline: false},
+		},
+	}
+}
+
+func tierToEmbedColor(tier int) int {
+	switch tier {
+	case 1:
+		return 0xe2e2e2
+	case 2:
+		return 0x80b3f4
+	case 3:
+		return 0x80fe80
+	case 4:
+		return 0xa96aed
+	case 5:
+		return 0xffd000
+	}
+	return 0x000000
+}
+
 // Inventory is the main route for getting a user's item inventory
 func Inventory(w http.ResponseWriter, r *http.Request) {
-	go CmdStats("inventory:get", "")
-	json.NewEncoder(w).Encode(
-		APIResponse{
-			false,
-			"",
-			DBGetInventory(mux.Vars(r)["userID"])})
+	//go CmdStats("inventory:get", "")
+	user := mux.Vars(r)["userID"]
+
+	respond(w,
+		map[string]interface{}{
+			"items":    DBGetInventory(user),
+			"fish":     DBGetFishInv(user),
+			"maxFish":  DBGetInvCapacity(user),
+			"maxBait":  DBGetBaitCapacity(user),
+			"userTier": expToTier(DBGetGlobalScore(user))})
 }
 
 // Location is the main route for getting and changing or getting a user's location
@@ -226,13 +286,13 @@ func BuyItem(w http.ResponseWriter, r *http.Request) {
 // Blacklist blacklists a user from using fishy
 func Blacklist(w http.ResponseWriter, r *http.Request) {
 	DBBlackListUser(mux.Vars(r)["userID"])
-	fmt.Fprintf(w, ":ok_hand:")
+	fmt.Fprint(w, ":ok_hand:")
 }
 
 // Unblacklist unblacklists a user from using fishy
 func Unblacklist(w http.ResponseWriter, r *http.Request) {
 	DBUnblackListUser(mux.Vars(r)["userID"])
-	fmt.Fprintf(w, "sad to see you go...")
+	fmt.Fprint(w, "sad to see you go...")
 }
 
 // StartGatherBait starts the timeout for gathering bait
@@ -313,6 +373,68 @@ func CommandStats(w http.ResponseWriter, r *http.Request) {
 	respond(w, stats)
 }
 
+//
+func RandFish(w http.ResponseWriter, r *http.Request) {
+	respond(w, makeEmbedFish(getFish(5, "ocean"), "hey idiot"))
+}
+
+//
+func BaitInvGet(w http.ResponseWriter, r *http.Request) {
+	user := mux.Vars(r)["userID"]
+	respond(w,
+		map[string]interface{}{
+			"maxBait":          DBGetBaitCapacity(user),
+			"currentBaitCount": DBGetBaitUsage(user),
+			"bait":             DBGetBaitInv(user),
+			"currentTier":      DBGetCurrentBaitTier(user)})
+}
+
+//
+func BaitInvPost(w http.ResponseWriter, r *http.Request) {
+	user := mux.Vars(r)["userID"]
+	var bait BaitRequest
+	err := readAndUnmarshal(r.Body, &bait)
+	if err != nil {
+		respondError(w,
+			fmt.Sprintf("Error unmarshaling request: %s", err.Error()))
+		return
+	}
+	amt, err := DBAddBait(user, bait.Tier, bait.Amount)
+	if err != nil {
+		respondError(w,
+			fmt.Sprintf("Error adding bait: %s", err.Error()))
+		return
+	}
+	respond(w,
+		map[string]interface{}{
+			"new": amt})
+}
+
+//
+func EquippedBaitGet(w http.ResponseWriter, r *http.Request) {
+	respond(w,
+		map[string]interface{}{
+			"tier": DBGetCurrentBaitTier(mux.Vars(r)["userID"])})
+}
+
+//
+func EquippedBaitPost(w http.ResponseWriter, r *http.Request) {
+	var req map[string]interface{}
+	err := readAndUnmarshal(r.Body, &req)
+	if err != nil {
+		fmt.Println("Error unmarshaling request data " + err.Error())
+		respondError(w, err.Error())
+		return
+	}
+	err = DBSetCurrentBaitTier(mux.Vars(r)["userID"], req["tier"].(float64))
+	if err != nil {
+		fmt.Println("Error setting current bait " + err.Error())
+		respondError(w, err.Error())
+		return
+	}
+	respond(w, fmt.Sprintf("Successfully set current bait tier to %v", req["tier"].(float64)))
+}
+
 func respond(w http.ResponseWriter, data interface{}) {
 	e := json.NewEncoder(w)
 	e.SetEscapeHTML(false)
@@ -389,57 +511,75 @@ var t3Total = t2Total + t3
 var t4Total = t3Total + t4
 var t5Total = t4Total + t5
 
-func selectTier(userTier int) string {
+func getFish(tier int, location string) InvFish {
+	_tier := selectTier(tier)
+	base := Fish.Location.Ocean
+	switch location {
+	case "lake":
+		base = Fish.Location.Lake
+	case "river":
+		base = Fish.Location.River
+	}
+	fish := base[_tier-1].Fish
+	r := rand.Intn(len(fish) - 1)
+	fmt.Println(r)
+	_fish := fish[r]
+	r = rand.Intn(_fish.Size[1]-_fish.Size[0]) + _fish.Size[0]
+	fmt.Println(r)
+	return InvFish{location, _fish.Name, 5, r, _tier, _fish.Pun, _fish.Image}
+}
+
+func selectTier(userTier int) int {
 	switch userTier {
 	case 1:
-		return "t1"
+		return 1
 
 	case 2:
 		sel := rand.Intn(t2Total)
 		switch {
 		case sel <= t1Total:
-			return "t1"
+			return 1
 		default:
-			return "t2"
+			return 2
 		}
 
 	case 3:
 		sel := rand.Intn(t3Total)
 		switch {
 		case sel <= t1Total:
-			return "t1"
+			return 1
 		case sel <= t2Total:
-			return "t2"
+			return 2
 		default:
-			return "t3"
+			return 3
 		}
 
 	case 4:
 		sel := rand.Intn(t4Total)
 		switch {
 		case sel <= t1Total:
-			return "t1"
+			return 1
 		case sel <= t2Total:
-			return "t2"
+			return 2
 		case sel <= t3Total:
-			return "t3"
+			return 3
 		default:
-			return "t4"
+			return 4
 		}
 
 	default:
 		sel := rand.Intn(t5Total)
 		switch {
 		case sel <= t1Total:
-			return "t1"
+			return 1
 		case sel <= t2Total:
-			return "t2"
+			return 2
 		case sel <= t3Total:
-			return "t3"
+			return 3
 		case sel <= t4Total:
-			return "t4"
+			return 4
 		default:
-			return "t5"
+			return 5
 		}
 	}
 }

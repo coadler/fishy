@@ -104,4 +104,34 @@ var routes = Routes{
 		"/v1/stats",
 		CommandStats,
 	},
+	Route{
+		"RFish",
+		"GET",
+		"/v1/rfish",
+		RandFish,
+	},
+	Route{
+		"Bait",
+		"GET",
+		"/v1/bait/{userID}",
+		BaitInvGet,
+	},
+	Route{
+		"Bait",
+		"POST",
+		"/v1/bait/{userID}",
+		BaitInvPost,
+	},
+	Route{
+		"Bait",
+		"GET",
+		"/v1/bait/{userID}/current",
+		EquippedBaitGet,
+	},
+	Route{
+		"Bait",
+		"POST",
+		"/v1/bait/{userID}/current",
+		EquippedBaitPost,
+	},
 }

@@ -15,6 +15,9 @@ var (
 	NoInvEEKey     = func(userID string) string { return "ee:" + userID }
 	GlobalStatsKey = func(userID string) string { return "statistics:global:" + userID }
 	FishInvKey     = func(userID string) string { return "fish:" + userID }
+	BaitInvKey     = func(userID string) string { return "bait:inventory:" + userID }
+	BaitTierKey    = func(userID string) string { return "bait:tier:" + userID }
+	BaitGatherKey  = func(userID string) string { return "bait:gathering:" + userID }
 	GuildStatsKey  = func(userID, guildID string) string { return "statistics:" + guildID + ":" + userID }
 	RateLimitKey   = func(cmd, userID string) string { return "ratelimit:" + cmd + ":" + userID }
 	HourlyCmdTrack = func(cmd string) string { return "tracking:hourly:" + cmd }
