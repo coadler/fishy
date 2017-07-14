@@ -122,7 +122,7 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 		// 		"%v", msg.Author.Username, loc, failed(e)))
 	}
 
-	//go DBSetRateLimit("fishy", msg.Author.ID, FishyTimeout)
+	go DBSetRateLimit("fishy", msg.Author.ID, FishyTimeout)
 }
 
 func makeEmbedFail(user, location, fail string) *discordgo.MessageEmbed {

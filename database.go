@@ -743,7 +743,7 @@ func DBGetBaitUsage(userID string) int {
 			fmt.Println("error converting bait to int " + err.Error())
 			return 0
 		}
-		conv[i] = b
+		conv["t"+i] = b
 	}
 	err = mapstructure.Decode(conv, &bait)
 	if err != nil {
