@@ -149,6 +149,7 @@ type ConfigData struct {
 		Password string `json:"password"`
 		DB       int    `json:"db"`
 	} `json:"redis"`
+	Webhook string `json:"webhook"`
 }
 
 // LevelData holds the data for tier requirements

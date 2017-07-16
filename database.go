@@ -7,30 +7,66 @@ import (
 	"math"
 	"math/rand"
 	"reflect"
+	"runtime"
 	"strconv"
 	"time"
 
 	"github.com/go-redis/redis"
 	"github.com/iopred/discordgo"
+	"github.com/kz/discordrus"
 	"github.com/mitchellh/mapstructure"
+	log "github.com/sirupsen/logrus"
 )
 
 var redisClient *redis.Client
+
+// var log = logrus.New()
 
 const locDensityExpiration time.Duration = 3 * time.Hour
 
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
 	GetConfigs()
+	log.SetLevel(log.DebugLevel)
+	log.AddHook(discordrus.NewHook(
+		Config.Webhook,
+		log.ErrorLevel,
+		&discordrus.Opts{
+			Username:           "fishy-api1",
+			Author:             "",
+			DisableTimestamp:   false,
+			TimestampFormat:    "Jan 2 15:04:05.00000",
+			EnableCustomColors: true,
+			CustomLevelColors: &discordrus.LevelColors{
+				Debug: 10170623,
+				Info:  3581519,
+				Warn:  14327864,
+				Error: 13631488,
+				Panic: 13631488,
+				Fatal: 13631488,
+			},
+			DisableInlineFields: false,
+		},
+	))
 	redisClient = redis.NewClient(&redis.Options{
 		Addr:     Config.Redis.URL,
 		Password: Config.Redis.Password,
 		DB:       Config.Redis.DB,
 	})
 	if err := redisClient.Ping().Err(); err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 }
+
+func logError(ctx string, err error) {
+	pc, _, _, _ := runtime.Caller(1)
+	log.WithFields(log.Fields{
+		"Error":    err.Error(),
+		"Function": runtime.FuncForPC(pc).Name(),
+	}).Error(ctx)
+}
+
+// logError("", err)
 
 // DBGetLocDensity will get current location density or set default if it doesn't exist in the database
 func DBGetLocDensity(userID string) (UserLocDensity, error) {
@@ -43,7 +79,6 @@ func DBGetLocDensity(userID string) (UserLocDensity, error) {
 		// map key's stored JSON to the UserLocDensity struct
 		err := json.Unmarshal([]byte(cmd), &LocDensity)
 		if err != nil {
-			fmt.Println("error unmarshaling json", err.Error())
 			return UserLocDensity{}, err
 		}
 	} else {
@@ -150,7 +185,7 @@ func DBGetLocation(userID string) string {
 	cmd, err := redisClient.Get(key).Result()
 	if err != nil {
 		if err = redisClient.Set(key, "lake", 0).Err(); err != nil { // set default location if no key exists
-			fmt.Println("Error setting key", err.Error())
+			logError("Error setting location key", err)
 			return ""
 		}
 		return "lake"
@@ -178,12 +213,16 @@ func DBGetBiteRate(userID string) float32 {
 	case "ocean":
 		return calcBiteRate(float32(locDen.Ocean))
 	}
+	log.WithFields(log.Fields{
+		"User":     userID,
+		"Location": loc}).Error("User does not have a known location")
 	return 0
 }
 
 //
 func DBGetCatchRate(userID string) (float32, error) {
-	switch redisClient.HGet(InventoryKey(userID), "rod").Val() {
+	rod := redisClient.HGet(InventoryKey(userID), "rod").Val()
+	switch rod {
 	case "1":
 		return .50, nil
 	case "2":
@@ -195,12 +234,16 @@ func DBGetCatchRate(userID string) (float32, error) {
 	case "5":
 		return .80, nil
 	}
+	log.WithFields(log.Fields{
+		"User": userID,
+		"Rod":  rod}).Error("Invalid rod tier")
 	return 0, errors.New("Invalid rod tier")
 }
 
 //
 func DBGetFishRate(userID string) (float32, error) {
-	switch redisClient.HGet(InventoryKey(userID), "hook").Val() {
+	hook := redisClient.HGet(InventoryKey(userID), "hook").Val()
+	switch hook {
 	case "1":
 		return .50, nil
 	case "2":
@@ -212,6 +255,9 @@ func DBGetFishRate(userID string) (float32, error) {
 	case "5":
 		return .90, nil
 	}
+	log.WithFields(log.Fields{
+		"User": userID,
+		"Hook": hook}).Error("Invalid hook tier")
 	return 0, errors.New("Invalid hook tier")
 }
 
@@ -223,19 +269,19 @@ func DBGetInventory(userID string) UserItems {
 	if DBInventoryCheckExists(userID) {
 		keys, err := redisClient.HGetAll(key).Result()
 		if err != nil {
-			fmt.Println("error getting key ", err.Error())
+			logError("Unable to retrieve inventory", err)
 			return UserItems{}
 		}
 		for i, e := range keys {
 			conv[i], err = strconv.Atoi(e)
 			if err != nil {
-				fmt.Println("Error converting tier to int " + err.Error())
+				logError("Unable to convert inventory tier to int", err)
 				return UserItems{}
 			}
 		}
 		err = mapstructure.Decode(conv, &items)
 		if err != nil {
-			fmt.Println("error decoding map", err.Error())
+			logError("Unable to decode inventory map", err)
 			return UserItems{}
 		}
 		return items
@@ -302,7 +348,7 @@ func DBGetGuildScore(userID string, guildID string) float64 {
 func DBGiveGuildScore(userID string, amt float64, guildID string) error {
 	err := redisClient.ZIncrBy(ScoreGuildKey(guildID), amt, userID).Err()
 	if err != nil {
-		fmt.Println("error incrementing guild exp", err.Error())
+		logError("Unable to increment guild exp", err)
 		return err
 	}
 	return nil
@@ -326,7 +372,7 @@ func DBGetItemTier(userID string, item string) int {
 	DBInventoryCheckExists(userID)
 	tier, err := strconv.Atoi(redisClient.HGet(InventoryKey(userID), item).Val())
 	if err != nil {
-		fmt.Println("Error converting item tier to int " + err.Error())
+		logError("Unable to convert item tier to int", err)
 		return 0
 	}
 	return tier
@@ -437,7 +483,7 @@ func DBTrackUser(user *discordgo.User) {
 func DBGetTrackedUser(userID string) string {
 	user, err := redisClient.HMGet(UserTrackKey(userID), "name", "discriminator").Result()
 	if err != nil {
-		fmt.Println("Error retrieving tracked user " + err.Error())
+		logError("Unable to retrieve tracked user", err)
 		return ""
 	}
 	return fmt.Sprintf("%v#%v", user[0], user[1])
@@ -447,7 +493,7 @@ func DBGetTrackedUser(userID string) string {
 func DBGetTrackedUserAvatar(userID string) string {
 	avatar, err := redisClient.HGet(UserTrackKey(userID), "avatar").Result()
 	if err != nil {
-		fmt.Println("Error retrieving tracked user avatar " + err.Error())
+		logError("Unable to retrieve tracked user avatar", err)
 		return ""
 	}
 	return avatar
@@ -472,7 +518,7 @@ func DBGetGlobalStats(userID string) UserStats {
 		data := redisClient.HGetAll(key).Val()
 		err := mapstructure.Decode(data, &stats)
 		if err != nil {
-			fmt.Println("error decoding map", err.Error())
+			logError("Unable to decode global stats map", err)
 			return UserStats{}
 		}
 		return stats
@@ -489,7 +535,7 @@ func DBGetGuildStats(userID, guildID string) UserStats {
 		data := redisClient.HGetAll(key).Val()
 		err := mapstructure.Decode(data, &stats)
 		if err != nil {
-			fmt.Println("error decoding map", err.Error())
+			logError("Unable to decode guild stats map", err)
 			return UserStats{}
 		}
 		return stats
@@ -502,7 +548,7 @@ func DBGetGuildStats(userID, guildID string) UserStats {
 func DBAddGlobalCast(userID string) {
 	err := redisClient.HIncrBy(GlobalStatsKey(userID), "casts", 1).Err()
 	if err != nil {
-		fmt.Println("Error parsing incrementing global casts " + err.Error())
+		logError("Unable to increment global casts stat", err)
 		return
 	}
 }
@@ -511,7 +557,7 @@ func DBAddGlobalCast(userID string) {
 func DBAddGuildCast(userID, guildID string) {
 	err := redisClient.HIncrBy(GuildStatsKey(userID, guildID), "casts", 1).Err()
 	if err != nil {
-		fmt.Println("Error parsing incrementing global casts " + err.Error())
+		logError("Unable to increment guild casts stat", err)
 		return
 	}
 }
@@ -526,7 +572,7 @@ func DBAddCast(userID, guildID string) {
 func DBAddGlobalGarbage(userID string) {
 	err := redisClient.HIncrBy(GlobalStatsKey(userID), "garbage", 1).Err()
 	if err != nil {
-		fmt.Println("Error parsing incrementing global garbage " + err.Error())
+		logError("Unable to increment global garbage stat", err)
 		return
 	}
 }
@@ -535,7 +581,7 @@ func DBAddGlobalGarbage(userID string) {
 func DBAddGuildGarbage(userID, guildID string) {
 	err := redisClient.HIncrBy(GuildStatsKey(userID, guildID), "casts", 1).Err()
 	if err != nil {
-		fmt.Println("Error parsing incrementing global garbage " + err.Error())
+		logError("Unable to increment guild garbage stat", err)
 		return
 	}
 }
@@ -551,12 +597,12 @@ func DBIncrGlobalAvgFishStats(userID string, len float64) {
 	key := GlobalStatsKey(userID)
 	totF, err := strconv.ParseFloat(redisClient.HGet(key, "fish").Val(), 64)
 	if err != nil {
-		fmt.Println("Error parsing total fish " + err.Error())
+		logError("Unable to parse total fish stat", err)
 		return
 	}
 	avg, err := strconv.ParseFloat(redisClient.HGet(key, "avgLength").Val(), 64)
 	if err != nil {
-		fmt.Println("Error parsing avg fish length " + err.Error())
+		logError("Unable to parse avg fish length stat", err)
 		return
 	}
 	totL := totF * avg
@@ -566,12 +612,12 @@ func DBIncrGlobalAvgFishStats(userID string, len float64) {
 
 	err = redisClient.HSet(key, "fish", totF).Err()
 	if err != nil {
-		fmt.Println("Error setting new value " + err.Error())
+		logError("Unable to set new fish stat", err)
 		return
 	}
 	err = redisClient.HSet(key, "avgLength", avg).Err()
 	if err != nil {
-		fmt.Println("Error setting new value " + err.Error())
+		logError("Unable to set new avgLength stat", err)
 		return
 	}
 }
@@ -581,12 +627,12 @@ func DBIncrGuildAvgFishStats(userID, guildID string, len float64) {
 	key := GuildStatsKey(userID, guildID)
 	totF, err := strconv.ParseFloat(redisClient.HGet(key, "fish").Val(), 64)
 	if err != nil {
-		fmt.Println("Error parsing total fish " + err.Error())
+		logError("Unable to parse total fish", err)
 		return
 	}
 	avg, err := strconv.ParseFloat(redisClient.HGet(key, "avgLength").Val(), 64)
 	if err != nil {
-		fmt.Println("Error parsing avg fish length " + err.Error())
+		logError("Unable to parse avg fish length", err)
 		return
 	}
 	totL := totF * avg
@@ -596,12 +642,12 @@ func DBIncrGuildAvgFishStats(userID, guildID string, len float64) {
 
 	err = redisClient.HSet(key, "fish", totF).Err()
 	if err != nil {
-		fmt.Println("Error setting new value " + err.Error())
+		logError("Unable to set new fish total fish", err)
 		return
 	}
 	err = redisClient.HSet(key, "avgLength", avg).Err()
 	if err != nil {
-		fmt.Println("Error setting new value " + err.Error())
+		logError("Unable to set new avgLength stat", err)
 		return
 	}
 }
@@ -657,7 +703,7 @@ func DBGetInvSize(userID string) int {
 func DBGetInvCapacity(userID string) int {
 	cap, err := strconv.Atoi(redisClient.HGet(InventoryKey(userID), "vehicle").Val())
 	if err != nil {
-		fmt.Println("Error converting vehicle tier to int" + err.Error())
+		logError("Unable to convert vehicle tier to int", err)
 		return 0
 	}
 	switch cap {
@@ -677,7 +723,7 @@ func DBGetInvCapacity(userID string) int {
 func DBGetBaitCapacity(userID string) int {
 	cap, err := strconv.Atoi(redisClient.HGet(InventoryKey(userID), "baitbox").Val())
 	if err != nil {
-		fmt.Println("Error converting bait tier to int" + err.Error())
+		logError("Unable to convert baitbox tier to int", err)
 		return 0
 	}
 	switch cap {
@@ -701,20 +747,20 @@ func DBGetBaitInv(userID string) BaitInv {
 	if keyExists(key) {
 		inv, err := redisClient.HGetAll(key).Result()
 		if err != nil {
-			fmt.Println("Error getting bait inv " + err.Error())
+			logError("Unable to get bait inventory", err)
 			return BaitInv{}
 		}
 		for i, e := range inv {
 			b, err := strconv.Atoi(e)
 			if err != nil {
-				fmt.Println("error converting bait to int " + err.Error())
+				logError("Unable to convert bait tiers to int", err)
 				return BaitInv{}
 			}
 			conv["t"+i] = b
 		}
 		err = mapstructure.Decode(conv, &bait)
 		if err != nil {
-			fmt.Println("error decoding bait inv map to struct " + err.Error())
+			logError("Unable to decode bait inventory map to struct", err)
 			return BaitInv{}
 		}
 		return bait
@@ -722,7 +768,7 @@ func DBGetBaitInv(userID string) BaitInv {
 	fmt.Println("doesnt exist")
 	err := redisClient.HMSet(key, map[string]interface{}{"1": 0, "2": 0, "3": 0, "4": 0, "5": 0}).Err()
 	if err != nil {
-		fmt.Println("error setting default bait inv " + err.Error())
+		logError("Unable to set default bait inventory", err)
 		return BaitInv{}
 	}
 	return BaitInv{0, 0, 0, 0, 0}
@@ -740,14 +786,14 @@ func DBGetBaitUsage(userID string) int {
 	for i, e := range inv {
 		b, err := strconv.Atoi(e)
 		if err != nil {
-			fmt.Println("error converting bait to int " + err.Error())
+			logError("Unable to convert bait to int", err)
 			return 0
 		}
 		conv["t"+i] = b
 	}
 	err = mapstructure.Decode(conv, &bait)
 	if err != nil {
-		fmt.Println("error decoding bait inv map to struct " + err.Error())
+		logError("Unable to decode bait inventory map to struct", err)
 		return 0
 	}
 	return bait.T1 + bait.T2 + bait.T3 + bait.T4 + bait.T5
@@ -764,14 +810,14 @@ func DBGetCurrentBaitTier(userID string) int {
 	if keyExists(key) {
 		tier, err := strconv.Atoi(redisClient.Get(key).Val())
 		if err != nil {
-			fmt.Println("Error parsing current bait tier " + err.Error())
+			logError("Unable to parse current bait tier", err)
 			return 0
 		}
 		return tier
 	}
 	err := redisClient.Set(key, 1, 0).Err()
 	if err != nil {
-		fmt.Println("Error setting current bait tier " + err.Error())
+		logError("Unable to set current bait tier", err)
 		return 0
 	}
 	return 1
@@ -788,22 +834,22 @@ func DBGetCmdStats(cmd string) (CommandStatData, error) {
 	dailyKey := DailyCmdTrack(cmd)
 	hour, err := redisClient.ZCard(hourlyKey).Result()
 	if err != nil {
-		fmt.Println("Error retrieving cmd stats " + err.Error())
+		logError("Error retrieving cmd stats", err)
 		return CommandStatData{}, err
 	}
 	day, err := redisClient.ZCard(dailyKey).Result()
 	if err != nil {
-		fmt.Println("Error retrieving cmd stats " + err.Error())
+		logError("Error retrieving cmd stats", err)
 		return CommandStatData{}, err
 	}
 	tot, err := redisClient.Get(TotalCmdTrack(cmd)).Result()
 	if err != nil {
-		fmt.Println("Error retrieving cmd stats " + err.Error())
+		logError("Error retrieving cmd stats", err)
 		return CommandStatData{}, err
 	}
 	totS, err := strconv.Atoi(tot)
 	if err != nil {
-		fmt.Println("Error converting cmd stats to int " + err.Error())
+		logError("Error converting cmd stats to int", err)
 		return CommandStatData{}, err
 	}
 	return CommandStatData{int(hour), int(day), totS}, nil
