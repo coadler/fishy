@@ -11,9 +11,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ThyLeader/discordrus"
 	"github.com/go-redis/redis"
 	"github.com/iopred/discordgo"
-	"github.com/kz/discordrus"
 	"github.com/mitchellh/mapstructure"
 	log "github.com/sirupsen/logrus"
 )
