@@ -233,18 +233,24 @@ var (
 	Levels  LevelData
 	Secrets SecretStrings
 
-	files   = []string{"json/fish.json", "json/items.json", "config.json", "json/levels.json", "json/secretstrings.json", "json/trash.json"}
-	structs = []interface{}{&Fish, &Items, &Config, &Levels, &Secrets, &Trash}
+	files = map[string]interface{}{
+		"json/fish.json":          &Fish,
+		"json/items.json":         &Items,
+		"config.json":             &Config,
+		"json/levels.json":        &Levels,
+		"json/secretstrings.json": &Secrets,
+		"json/trash.json":         &Trash,
+	}
 )
 
 func GetConfigs() {
 	for k, v := range files {
-		data, err := ioutil.ReadFile(v)
+		data, err := ioutil.ReadFile(k)
 		if err != nil {
-			log.Panic(v + " not detected in current directory, " + err.Error())
+			log.Panic(k + " not detected in current directory, " + err.Error())
 		}
 
-		if err := json.Unmarshal(data, &structs[k]); err != nil {
+		if err := json.Unmarshal(data, &v); err != nil {
 			log.Panic("Could not unmarshal json, " + err.Error())
 		}
 	}
