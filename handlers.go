@@ -80,6 +80,12 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if amt, _ := DBGetCurrentBaitAmt(msg.Author.ID); amt < 1 {
+		respondError(w, fmt.Sprintf(
+			"You do not own any bait of your currently equipped tier. Please buy more bait or switch tiers."))
+		return
+	}
+
 	bite := DBGetBiteRate(msg.Author.ID)
 	catch, err := DBGetCatchRate(msg.Author.ID)
 	if err != nil {

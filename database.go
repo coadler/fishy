@@ -45,7 +45,7 @@ func init() {
 				Panic: 13631488,
 				Fatal: 13631488,
 			},
-			DisableInlineFields: false,
+			DisableInlineFields: true,
 		},
 	))
 	redisClient = redis.NewClient(&redis.Options{
@@ -826,6 +826,45 @@ func DBGetCurrentBaitTier(userID string) int {
 //
 func DBSetCurrentBaitTier(userID string, tier float64) error {
 	return redisClient.Set(BaitTierKey(userID), tier, 0).Err()
+}
+
+//
+func DBGetCurrentBaitAmt(userID string) (int, error) {
+	tier := DBGetCurrentBaitTier(userID)
+	return strconv.Atoi(redisClient.HGet(BaitTierKey(userID), fmt.Sprintf("%v", tier)).Val())
+}
+
+//
+func DBLoseBait(userID string) (int, error) {
+	rem, err := DBAddBait(userID, DBGetCurrentBaitTier(userID), -1)
+	if err != nil {
+		logError("Error subtracting bait after successful catch", err)
+		return -1, errors.New("Error subtracting bait")
+	}
+	return int(rem), nil
+}
+
+// this is useless but i wanna keep it cuz it looks cool
+func highestBait(bait BaitInv) int {
+	h := 0
+	v := reflect.ValueOf(bait)
+	for i := 0; i < v.NumField(); i++ {
+		f := v.Field(i)
+		if f.Interface().(int) > 0 {
+			n, err := strconv.Atoi(string(f.Type().Name()[1]))
+			if err != nil {
+				logError("Error converting bait tier to int", err)
+				return -1
+			}
+			if n > h {
+				h = n
+			}
+		}
+	}
+	if h == 0 {
+		logError(fmt.Sprintf("%+v", bait), errors.New("Could not find highest bait"))
+	}
+	return h
 }
 
 //
