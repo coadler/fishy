@@ -134,4 +134,10 @@ var routes = Routes{
 		"/v1/bait/{userID}/current",
 		EquippedBaitPost,
 	},
+	Route{
+		"SellFish",
+		"Get",
+		"/v1/inventory/sell/{userID}",
+		SellFish,
+	},
 }

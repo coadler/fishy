@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -52,6 +53,7 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 			"Please wait %v before fishing again!", timeLeft.String()))
 		return
 	}
+	fmt.Println(msg.Author.Username)
 	//inv := DBGetInventory(msg.Author.ID)
 	noinv := DBCheckMissingInventory(msg.Author.ID)
 	if len(noinv) > 0 {
@@ -80,10 +82,17 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if amt, _ := DBGetCurrentBaitAmt(msg.Author.ID); amt < 1 {
+	if amt, err := DBGetCurrentBaitAmt(msg.Author.ID); err != nil {
 		respondError(w, fmt.Sprintf(
-			"You do not own any bait of your currently equipped tier. Please buy more bait or switch tiers."))
+			"There was an error"))
+		logError("Error converting current bait tier", err)
 		return
+	} else {
+		if amt < 1 {
+			respondError(w, fmt.Sprintf(
+				"You do not own any bait of your currently equipped tier. Please buy more bait or switch tiers."))
+			return
+		}
 	}
 
 	bite := DBGetBiteRate(msg.Author.ID)
@@ -96,13 +105,13 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 		respondError(w, err.Error())
 	}
 	loc := DBGetLocation(msg.Author.ID)
-	// density, _ := DBGetSetLocDensity(loc, msg.Author.ID)
+	//density, _ := DBGetSetLocDensity(loc, msg.Author.ID)
 	// score := DBGetGlobalScore(msg.Author.ID)
 	fc, e := fishCatch(bite, catch, fish)
 
 	if fc {
 		if e == "garbage" {
-			go DBAddFishToInv(msg.Author.ID, "garbage", 0)
+			go DBAddFishToInv(msg.Author.ID, "garbage", 5)
 			respond(w, makeEmbedTrash(msg.Author.Username, loc, randomTrash()))
 
 			// fmt.Sprintf(
@@ -112,16 +121,21 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 		if e == "fish" {
 			level := expToTier(DBGetGlobalScore(msg.Author.ID))
 			f := getFish(level, loc)
-			go DBGiveGlobalScore(msg.Author.ID, 1)
-			go DBAddFishToInv(msg.Author.ID, "fish", f.Price)
-			respond(w, makeEmbedFish(f, msg.Author.Username))
+			err := DBAddFishToInv(msg.Author.ID, "fish", f.Price)
+			if err != nil {
+				respondError(w, "Your fish inventory is full and you cannot carry any more. You are forced to throw the fish back.")
+			} else {
+				go DBGiveGlobalScore(msg.Author.ID, 1)
+				go DBLoseBait(msg.Author.ID)
+				respond(w, makeEmbedFish(f, msg.Author.Username))
+			}
 
 			// fmt.Sprintf(
 			// 	"%v fishing in %v\n"+
 			// 		"you caught a tier %v %v. It is %vcm long and worth %v.\n%s\n%s", msg.Author.Username, loc, f.Tier, f.Name, f.Size, f.Price, f.Pun, f.URL))
 		}
 	} else {
-		respond(w, makeEmbedFail(msg.Author.Username, loc, failed(e)))
+		respond(w, makeEmbedFail(msg.Author.Username, loc, failed(e, msg.Author.ID)))
 
 		// fmt.Sprintf(
 		// 	"%v fishing in %v\n"+
@@ -156,8 +170,8 @@ func makeEmbedFish(fish InvFish, user string) *discordgo.MessageEmbed {
 		Title:       fmt.Sprintf("%s, you caught a %s in the %s", user, fish.Name, fish.Location),
 		Description: fish.Pun,
 		Fields: []*discordgo.MessageEmbedField{
-			&discordgo.MessageEmbedField{Name: "Length", Value: fmt.Sprint(fish.Size), Inline: false},
-			&discordgo.MessageEmbedField{Name: "Price", Value: fmt.Sprint(fish.Price), Inline: false},
+			&discordgo.MessageEmbedField{Name: "Length", Value: fmt.Sprintf("%.2fcm", fish.Size), Inline: false},
+			&discordgo.MessageEmbedField{Name: "Price", Value: fmt.Sprintf("%.0f¥", fish.Price), Inline: false},
 		},
 	}
 }
@@ -441,6 +455,18 @@ func EquippedBaitPost(w http.ResponseWriter, r *http.Request) {
 	respond(w, fmt.Sprintf("Successfully set current bait tier to %v", req["tier"].(float64)))
 }
 
+//
+func FishInventory(w http.ResponseWriter, r *http.Request) {
+
+}
+
+//
+func SellFish(w http.ResponseWriter, r *http.Request) {
+	user := mux.Vars(r)["userID"]
+	worth := DBSellFish(user)
+	respond(w, fmt.Sprintf("You redeemed %s fish, %s legendaries, and %s garbage for %s credits", worth["fish"], worth["legendaries"], worth["garbage"], worth["worth"]))
+}
+
 func respond(w http.ResponseWriter, data interface{}) {
 	e := json.NewEncoder(w)
 	e.SetEscapeHTML(false)
@@ -491,8 +517,9 @@ func readAndUnmarshal(data io.Reader, fmt interface{}) error {
 	return nil
 }
 
-func failed(e string) string {
+func failed(e, uID string) string {
 	if e == "catch" {
+		go DBLoseBait(uID)
 		return "a fish bit but you were unable to wrangle it in"
 	}
 	if e == "bite" {
@@ -506,11 +533,11 @@ func randomTrash() string {
 	return Trash.Regular.Text[r]
 }
 
-var t1 = 52
-var t2 = 25
+var t1 = 50
+var t2 = 29
 var t3 = 15
 var t4 = 5
-var t5 = 2
+var t5 = 1
 var t1Total = t1
 var t2Total = t1Total + t2
 var t3Total = t2Total + t3
@@ -527,12 +554,40 @@ func getFish(tier int, location string) InvFish {
 		base = Fish.Location.River
 	}
 	fish := base[_tier-1].Fish
-	r := rand.Intn(len(fish) - 1)
-	fmt.Println(r)
-	_fish := fish[r]
-	r = rand.Intn(_fish.Size[1]-_fish.Size[0]) + _fish.Size[0]
-	fmt.Println(r)
-	return InvFish{location, _fish.Name, 5, r, _tier, _fish.Pun, _fish.Image}
+	// fish number
+	r1 := rand.Intn(len(fish) - 1)
+	_fish := fish[r1]
+	// fish len
+	r := float64(rand.Intn(_fish.Size[1]-_fish.Size[0]) + _fish.Size[0])
+	r += rand.Float64()
+	sellPrice := getFishPrice(_tier, float64(_fish.Size[0]), float64(_fish.Size[1]), float64(r))
+	return InvFish{location, _fish.Name, sellPrice, r, _tier, _fish.Pun, _fish.Image}
+}
+
+func getFishPrice(tier int, min, max, l float64) float64 {
+	var ratio, price float64
+	switch tier {
+	case 1:
+		ratio = (l - min) / (max - min)
+		price = ((Fish.Prices[0][1] - Fish.Prices[0][0]) * ratio) + Fish.Prices[0][0]
+	case 2:
+		ratio = (l - min) / (max - min)
+		price = ((Fish.Prices[1][1] - Fish.Prices[1][0]) * ratio) + Fish.Prices[1][0]
+	case 3:
+		ratio = (l - min) / (max - min)
+		price = ((Fish.Prices[2][1] - Fish.Prices[2][0]) * ratio) + Fish.Prices[2][0]
+	case 4:
+		ratio = (l - min) / (max - min)
+		price = ((Fish.Prices[3][1] - Fish.Prices[3][0]) * ratio) + Fish.Prices[3][0]
+	case 5:
+		ratio = (l - min) / (max - min)
+		price = ((Fish.Prices[4][1] - Fish.Prices[4][0]) * ratio) + Fish.Prices[4][0]
+	default:
+		logError("Error getting fish price", errors.New("Unknown tier in price calculation"))
+		return price
+	}
+
+	return math.Floor(price)
 }
 
 func selectTier(userTier int) int {

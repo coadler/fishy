@@ -665,17 +665,27 @@ func DBGetFishInv(userID string) FishInv {
 		redisClient.HMSet(key, map[string]interface{}{"fish": 0, "garbage": 0, "legendaries": 0, "worth": 0})
 		return FishInv{0, 0, 0, 0}
 	}
-	var inv FishInv
+	conv := map[string]int{}
+	inv := FishInv{}
 	keys := redisClient.HGetAll(key).Val()
-	mapstructure.Decode(keys, &inv)
+	fmt.Printf("%+v", keys)
+	for i, e := range keys {
+		c, err := strconv.Atoi(e)
+		if err != nil {
+			logError("Unable to convert fish stats to int", err)
+			return FishInv{0, 0, 0, 0}
+		}
+		conv[i] = c
+	}
+	mapstructure.Decode(conv, &inv)
 	return inv
 }
 
 //
-func DBAddFishToInv(userID, catchType string, worth int) error {
+func DBAddFishToInv(userID, catchType string, worth float64) error {
 	key := FishInvKey(userID)
 
-	if DBGetInvSize(userID) <= DBGetInvCapacity(userID) {
+	if DBGetInvSize(userID) >= DBGetInvCapacity(userID) {
 		return errors.New("Inventory full")
 	}
 
@@ -696,7 +706,16 @@ func DBGetInvSize(userID string) int {
 	key := FishInvKey(userID)
 	fish, _ := strconv.Atoi(redisClient.HGet(key, "fish").Val())
 	legendary, _ := strconv.Atoi(redisClient.HGet(key, "legendary").Val())
+	fmt.Println(fish, legendary)
 	return fish + legendary
+}
+
+//
+func DBSellFish(userID string) map[string]string {
+	key := FishInvKey(userID)
+	fish := redisClient.HGetAll(key).Val()
+	redisClient.HMSet(key, map[string]interface{}{"fish": 0, "garbage": 0, "legendaries": 0, "worth": 0})
+	return fish
 }
 
 //
@@ -831,7 +850,13 @@ func DBSetCurrentBaitTier(userID string, tier float64) error {
 //
 func DBGetCurrentBaitAmt(userID string) (int, error) {
 	tier := DBGetCurrentBaitTier(userID)
-	return strconv.Atoi(redisClient.HGet(BaitTierKey(userID), fmt.Sprintf("%v", tier)).Val())
+	key := BaitInvKey(userID)
+	n, err := strconv.Atoi(redisClient.HGet(key, fmt.Sprintf("%v", tier)).Val())
+	if err != nil {
+		redisClient.HSet(key, fmt.Sprintf("%v", tier), 0)
+		return DBGetCurrentBaitAmt(userID)
+	}
+	return n, nil
 }
 
 //

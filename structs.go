@@ -37,6 +37,7 @@ type FishData struct {
 			} `json:"fish"`
 		} `json:"river"`
 	} `json:"location"`
+	Prices [][]float64
 }
 
 // TrashData stores the data structure for trash data
@@ -54,13 +55,13 @@ type TrashData struct {
 
 // InvFish holds the JSON structure for a singular fish
 type InvFish struct {
-	Location string `json:"location"`
-	Name     string `json:"name"`
-	Price    int    `json:"price"`
-	Size     int    `json:"size"`
-	Tier     int    `json:"tier"`
-	Pun      string `json:"pun"`
-	URL      string `json:"url"`
+	Location string  `json:"location"`
+	Name     string  `json:"name"`
+	Price    float64 `json:"price"`
+	Size     float64 `json:"size"`
+	Tier     int     `json:"tier"`
+	Pun      string  `json:"pun"`
+	URL      string  `json:"url"`
 }
 
 //
