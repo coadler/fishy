@@ -464,7 +464,7 @@ func FishInventory(w http.ResponseWriter, r *http.Request) {
 func SellFish(w http.ResponseWriter, r *http.Request) {
 	user := mux.Vars(r)["userID"]
 	worth := DBSellFish(user)
-	respond(w, fmt.Sprintf("You redeemed %s fish, %s legendaries, and %s garbage for %s credits", worth["fish"], worth["legendaries"], worth["garbage"], worth["worth"]))
+	respond(w, fmt.Sprintf("You redeemed %s fish, %s legendaries, and %s garbage for %s :yen:", worth["fish"], worth["legendaries"], worth["garbage"], worth["worth"]))
 }
 
 func respond(w http.ResponseWriter, data interface{}) {
