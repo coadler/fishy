@@ -1,13 +1,15 @@
 package main
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"math"
-	"math/rand"
+	"math/big"
+	pRand "math/rand"
 	"net/http"
 	"sort"
 	"strings"
@@ -19,7 +21,6 @@ import (
 )
 
 func init() {
-	rand.Seed(time.Now().UTC().UnixNano())
 }
 
 // Index responds with Hello World so it can easily be tested if the API is running
@@ -54,7 +55,6 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Println(msg.Author.Username)
-	//inv := DBGetInventory(msg.Author.ID)
 	noinv := DBCheckMissingInventory(msg.Author.ID)
 	if len(noinv) > 0 {
 		sort.Strings(noinv)
@@ -95,7 +95,9 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	bite := DBGetBiteRate(msg.Author.ID)
+	loc := DBGetLocation(msg.Author.ID)
+	density, _ := DBGetLocDensity(msg.Author.ID)
+	bite := DBGetBiteRate(msg.Author.ID, density, loc)
 	catch, err := DBGetCatchRate(msg.Author.ID)
 	if err != nil {
 		respondError(w, err.Error())
@@ -104,22 +106,15 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		respondError(w, err.Error())
 	}
-	loc := DBGetLocation(msg.Author.ID)
-	//density, _ := DBGetSetLocDensity(loc, msg.Author.ID)
-	// score := DBGetGlobalScore(msg.Author.ID)
-	fc, e := fishCatch(bite, catch, fish)
 
+	fc, e := fishCatch(bite, catch, fish)
 	if fc {
 		if e == "garbage" {
 			go DBAddFishToInv(msg.Author.ID, "garbage", 5)
-			respond(w, makeEmbedTrash(msg.Author.Username, loc, randomTrash()))
-
-			// fmt.Sprintf(
-			// 	"%v fishing in %v\n"+
-			// 		"you caught %v", msg.Author.Username, loc, randomTrash()))
+			respond(w, makeEmbedTrash(msg.Author.Username, loc, randomTrash(), density))
 		}
 		if e == "fish" {
-			level := expToTier(DBGetGlobalScore(msg.Author.ID))
+			level := ExpToTier(DBGetGlobalScore(msg.Author.ID))
 			f := getFish(level, loc)
 			err := DBAddFishToInv(msg.Author.ID, "fish", f.Price)
 			if err != nil {
@@ -127,43 +122,42 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 			} else {
 				go DBGiveGlobalScore(msg.Author.ID, 1)
 				go DBLoseBait(msg.Author.ID)
-				respond(w, makeEmbedFish(f, msg.Author.Username))
+				newDen, _ := DBGetSetLocDensity(loc, msg.Author.ID)
+				respond(w, makeEmbedFish(f, msg.Author.Username, newDen))
 			}
-
-			// fmt.Sprintf(
-			// 	"%v fishing in %v\n"+
-			// 		"you caught a tier %v %v. It is %vcm long and worth %v.\n%s\n%s", msg.Author.Username, loc, f.Tier, f.Name, f.Size, f.Price, f.Pun, f.URL))
 		}
 	} else {
-		respond(w, makeEmbedFail(msg.Author.Username, loc, failed(e, msg.Author.ID)))
-
-		// fmt.Sprintf(
-		// 	"%v fishing in %v\n"+
-		// 		"%v", msg.Author.Username, loc, failed(e)))
+		respond(w, makeEmbedFail(msg.Author.Username, loc, failed(e, msg.Author.ID), density))
 	}
 
 	go DBSetRateLimit("fishy", msg.Author.ID, FishyTimeout)
 }
 
-func makeEmbedFail(user, location, fail string) *discordgo.MessageEmbed {
+func makeEmbedFail(user, location, fail string, locDen UserLocDensity) *discordgo.MessageEmbed {
 	return &discordgo.MessageEmbed{
 		//Thumbnail:   &discordgo.MessageEmbedThumbnail{URL: "https://cdn.discordapp.com/attachments/288505799905378304/332261752777736193/Can.png"},
 		Color:       0xFF0000,
 		Title:       fmt.Sprintf("%s, you were unable to catch anything", user),
 		Description: fail,
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: fmt.Sprintf("%+v", locDen),
+		},
 	}
 }
 
-func makeEmbedTrash(user, location, trash string) *discordgo.MessageEmbed {
+func makeEmbedTrash(user, location, trash string, locDen UserLocDensity) *discordgo.MessageEmbed {
 	return &discordgo.MessageEmbed{
 		Thumbnail:   &discordgo.MessageEmbedThumbnail{URL: "https://cdn.discordapp.com/attachments/288505799905378304/332261752777736193/Can.png"},
 		Color:       0xffffff,
 		Title:       fmt.Sprintf("%s, you fished up some trash in the %s", user, location),
 		Description: fmt.Sprintf("It's %s", trash),
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: fmt.Sprintf("%+v", locDen),
+		},
 	}
 }
 
-func makeEmbedFish(fish InvFish, user string) *discordgo.MessageEmbed {
+func makeEmbedFish(fish InvFish, user string, locDen UserLocDensity) *discordgo.MessageEmbed {
 	return &discordgo.MessageEmbed{
 		Thumbnail:   &discordgo.MessageEmbedThumbnail{URL: fish.URL},
 		Color:       tierToEmbedColor(fish.Tier),
@@ -172,6 +166,9 @@ func makeEmbedFish(fish InvFish, user string) *discordgo.MessageEmbed {
 		Fields: []*discordgo.MessageEmbedField{
 			&discordgo.MessageEmbedField{Name: "Length", Value: fmt.Sprintf("%.2fcm", fish.Size), Inline: false},
 			&discordgo.MessageEmbedField{Name: "Price", Value: fmt.Sprintf("%.0f¥", fish.Price), Inline: false},
+		},
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: fmt.Sprintf("%+v", locDen),
 		},
 	}
 }
@@ -203,7 +200,7 @@ func Inventory(w http.ResponseWriter, r *http.Request) {
 			"fish":     DBGetFishInv(user),
 			"maxFish":  DBGetInvCapacity(user),
 			"maxBait":  DBGetBaitCapacity(user),
-			"userTier": expToTier(DBGetGlobalScore(user))})
+			"userTier": ExpToTier(DBGetGlobalScore(user))})
 }
 
 // Location is the main route for getting and changing or getting a user's location
@@ -395,7 +392,7 @@ func CommandStats(w http.ResponseWriter, r *http.Request) {
 
 //
 func RandFish(w http.ResponseWriter, r *http.Request) {
-	respond(w, makeEmbedFish(getFish(5, "ocean"), "hey idiot"))
+	respond(w, makeEmbedFish(getFish(5, "ocean"), "hey idiot", UserLocDensity{}))
 }
 
 //
@@ -485,13 +482,20 @@ func respondError(w http.ResponseWriter, err string) {
 			""})
 }
 
-func fishCatch(bite, catch, fish float32) (bool, string) {
-	r1 := rand.Float32()
-	r2 := rand.Float32()
-	r3 := rand.Float32()
-	fmt.Println(r1, bite)
-	fmt.Println(r2, catch)
-	fmt.Println(r3, fish)
+func fishCatch(bite, catch, fish int64) (bool, string) {
+	var r1, r2, r3 int64
+	if r, err := rand.Int(rand.Reader, big.NewInt(99)); err == nil {
+		r1 = r.Int64()
+	}
+	if r, err := rand.Int(rand.Reader, big.NewInt(99)); err == nil {
+		r2 = r.Int64()
+	}
+	if r, err := rand.Int(rand.Reader, big.NewInt(99)); err == nil {
+		r3 = r.Int64()
+	}
+	// fmt.Println(r1, bite)
+	// fmt.Println(r2, catch)
+	// fmt.Println(r3, fish)
 
 	if r1 <= bite {
 		if r2 <= catch {
@@ -529,8 +533,12 @@ func failed(e, uID string) string {
 }
 
 func randomTrash() string {
-	r := rand.Intn(len(Trash.Regular.Text) - 1)
-	return Trash.Regular.Text[r]
+	if r, err := rand.Int(rand.Reader, big.NewInt(int64(len(Trash.Regular.Text)-1))); err != nil {
+		logError("unable to generate random number", err)
+		return "hehexd this didnt work - " + err.Error()
+	} else {
+		return Trash.Regular.Text[int(r.Int64())]
+	}
 }
 
 var t1 = 50
@@ -554,13 +562,20 @@ func getFish(tier int, location string) InvFish {
 		base = Fish.Location.River
 	}
 	fish := base[_tier-1].Fish
+	var rand1, rand2 int64
 	// fish number
-	r1 := rand.Intn(len(fish) - 1)
-	_fish := fish[r1]
+	if r, err := rand.Int(rand.Reader, big.NewInt(int64(len(fish)-1))); err == nil {
+		rand1 = r.Int64()
+	}
+	_fish := fish[int(rand1)]
 	// fish len
-	r := float64(rand.Intn(_fish.Size[1]-_fish.Size[0]) + _fish.Size[0])
-	r += rand.Float64()
-	sellPrice := getFishPrice(_tier, float64(_fish.Size[0]), float64(_fish.Size[1]), float64(r))
+	if r, err := rand.Int(rand.Reader, big.NewInt(int64(_fish.Size[1]-_fish.Size[0]))); err == nil {
+		rand2 = r.Int64() + int64(_fish.Size[0])
+	}
+	r := float64(rand2)
+	r += pRand.Float64()
+	fmt.Println(rand2, r)
+	sellPrice := getFishPrice(_tier, float64(_fish.Size[0]), float64(_fish.Size[1]), r)
 	return InvFish{location, _fish.Name, sellPrice, r, _tier, _fish.Pun, _fish.Image}
 }
 
@@ -596,48 +611,64 @@ func selectTier(userTier int) int {
 		return 1
 
 	case 2:
-		sel := rand.Intn(t2Total)
+		sel, err := rand.Int(rand.Reader, big.NewInt(int64(t2Total)))
+		if err != nil {
+			logError("error generating rand int", err)
+			return 0
+		}
 		switch {
-		case sel <= t1Total:
+		case int(sel.Int64()) <= t1Total:
 			return 1
 		default:
 			return 2
 		}
 
 	case 3:
-		sel := rand.Intn(t3Total)
+		sel, err := rand.Int(rand.Reader, big.NewInt(int64(t2Total)))
+		if err != nil {
+			logError("error generating rand int", err)
+			return 0
+		}
 		switch {
-		case sel <= t1Total:
+		case int(sel.Int64()) <= t1Total:
 			return 1
-		case sel <= t2Total:
+		case int(sel.Int64()) <= t2Total:
 			return 2
 		default:
 			return 3
 		}
 
 	case 4:
-		sel := rand.Intn(t4Total)
+		sel, err := rand.Int(rand.Reader, big.NewInt(int64(t2Total)))
+		if err != nil {
+			logError("error generating rand int", err)
+			return 0
+		}
 		switch {
-		case sel <= t1Total:
+		case int(sel.Int64()) <= t1Total:
 			return 1
-		case sel <= t2Total:
+		case int(sel.Int64()) <= t2Total:
 			return 2
-		case sel <= t3Total:
+		case int(sel.Int64()) <= t3Total:
 			return 3
 		default:
 			return 4
 		}
 
 	default:
-		sel := rand.Intn(t5Total)
+		sel, err := rand.Int(rand.Reader, big.NewInt(int64(t2Total)))
+		if err != nil {
+			logError("error generating rand int", err)
+			return 0
+		}
 		switch {
-		case sel <= t1Total:
+		case int(sel.Int64()) <= t1Total:
 			return 1
-		case sel <= t2Total:
+		case int(sel.Int64()) <= t2Total:
 			return 2
-		case sel <= t3Total:
+		case int(sel.Int64()) <= t3Total:
 			return 3
-		case sel <= t4Total:
+		case int(sel.Int64()) <= t4Total:
 			return 4
 		default:
 			return 5
@@ -645,7 +676,7 @@ func selectTier(userTier int) int {
 	}
 }
 
-func expToTier(e float64) int {
+func ExpToTier(e float64) int {
 	switch {
 	case e >= 1000:
 		return 5

@@ -1,11 +1,11 @@
 package main
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
-	"math/rand"
+	"math/big"
 	"reflect"
 	"runtime"
 	"strconv"
@@ -25,7 +25,6 @@ var redisClient *redis.Client
 const locDensityExpiration time.Duration = 3 * time.Hour
 
 func init() {
-	rand.Seed(time.Now().UTC().UnixNano())
 	GetConfigs()
 	log.SetLevel(log.DebugLevel)
 	log.AddHook(discordrus.NewHook(
@@ -66,6 +65,14 @@ func logError(ctx string, err error) {
 	}).Error(ctx)
 }
 
+func logInfo(ctx string, err error) {
+	pc, _, _, _ := runtime.Caller(1)
+	log.WithFields(log.Fields{
+		"Error":    err.Error(),
+		"Function": runtime.FuncForPC(pc).Name(),
+	}).Info(ctx)
+}
+
 // logError("", err)
 
 // DBGetLocDensity will get current location density or set default if it doesn't exist in the database
@@ -93,11 +100,8 @@ func DBGetLocDensity(userID string) (UserLocDensity, error) {
 	return LocDensity, nil
 }
 
-// dbSetLocDensity randomly assigns density to a new location after fishing
-// note: this should only be called inside of DBGetSetLocDensity and as a result
-// does not check to see if the key already exists, therefore it is unexported
-// this will return the new location density and an error if applicable
-func dbSetLocDensity(location string, userID string) (UserLocDensity, error) {
+// DBSetLocDensity randomly assigns density to a new location after fishing
+func DBSetLocDensity(location string, userID string) (UserLocDensity, error) {
 	var LocDensity UserLocDensity
 	key := LocDensityKey(userID)
 	cmd := redisClient.Get(key).Val()
@@ -106,27 +110,38 @@ func dbSetLocDensity(location string, userID string) (UserLocDensity, error) {
 		return UserLocDensity{}, err
 	}
 
-	randDensity := int(math.Floor(float64(rand.Intn(97)/33))) + 1
-	randLocation := rand.Intn(100)
+	r1, err := rand.Int(rand.Reader, big.NewInt(2))
+	if err != nil {
+		logError("error generating random number", err)
+		return UserLocDensity{}, err
+	}
+	r2, err := rand.Int(rand.Reader, big.NewInt(99))
+	if err != nil {
+		logError("error generating random number", err)
+		return UserLocDensity{}, err
+	}
+	randDensity := int(r1.Int64()) + 1
+	randLocation := int(r2.Int64())
+
 	fmt.Println(randDensity, randLocation)
 	switch location {
 	case "lake":
 		LocDensity.Lake -= randDensity
-		if randLocation < 51 {
+		if randLocation < 50 {
 			LocDensity.River += randDensity
 		} else {
 			LocDensity.Ocean += randDensity
 		}
 	case "river":
 		LocDensity.River -= randDensity
-		if randLocation < 51 {
+		if randLocation < 50 {
 			LocDensity.Lake += randDensity
 		} else {
 			LocDensity.Ocean += randDensity
 		}
 	case "ocean":
 		LocDensity.Ocean -= randDensity
-		if randLocation < 51 {
+		if randLocation < 50 {
 			LocDensity.Lake += randDensity
 		} else {
 			LocDensity.River += randDensity
@@ -140,7 +155,6 @@ func dbSetLocDensity(location string, userID string) (UserLocDensity, error) {
 }
 
 // DBGetSetLocDensity returns the location density then sets a new one
-// this should be the preferred method for fishing
 func DBGetSetLocDensity(location string, userID string) (UserLocDensity, error) {
 	var LocDensity UserLocDensity
 	var err error
@@ -150,7 +164,7 @@ func DBGetSetLocDensity(location string, userID string) (UserLocDensity, error) 
 		return UserLocDensity{}, err
 	}
 
-	_, err = dbSetLocDensity(location, userID)
+	_, err = DBSetLocDensity(location, userID)
 	if err != nil {
 		return UserLocDensity{}, err
 	}
@@ -199,19 +213,16 @@ func DBSetLocation(userID string, loc string) error {
 }
 
 // DBGetBiteRate returns the biterate for a given user
-func DBGetBiteRate(userID string) float32 {
-	loc := DBGetLocation(userID)
-	locDen, _ := DBGetLocDensity(userID)
-
+func DBGetBiteRate(userID string, locDen UserLocDensity, loc string) int64 {
 	switch loc {
 	case "lake":
-		return calcBiteRate(float32(locDen.Lake))
+		return calcBiteRate(int64(locDen.Lake))
 
 	case "river":
-		return calcBiteRate(float32(locDen.River))
+		return calcBiteRate(int64(locDen.River))
 
 	case "ocean":
-		return calcBiteRate(float32(locDen.Ocean))
+		return calcBiteRate(int64(locDen.Ocean))
 	}
 	log.WithFields(log.Fields{
 		"User":     userID,
@@ -220,19 +231,19 @@ func DBGetBiteRate(userID string) float32 {
 }
 
 //
-func DBGetCatchRate(userID string) (float32, error) {
+func DBGetCatchRate(userID string) (int64, error) {
 	rod := redisClient.HGet(InventoryKey(userID), "rod").Val()
 	switch rod {
 	case "1":
-		return .50, nil
+		return 50, nil
 	case "2":
-		return .55, nil
+		return 55, nil
 	case "3":
-		return .60, nil
+		return 60, nil
 	case "4":
-		return .70, nil
+		return 70, nil
 	case "5":
-		return .80, nil
+		return 80, nil
 	}
 	log.WithFields(log.Fields{
 		"User": userID,
@@ -241,19 +252,19 @@ func DBGetCatchRate(userID string) (float32, error) {
 }
 
 //
-func DBGetFishRate(userID string) (float32, error) {
+func DBGetFishRate(userID string) (int64, error) {
 	hook := redisClient.HGet(InventoryKey(userID), "hook").Val()
 	switch hook {
 	case "1":
-		return .50, nil
+		return 50, nil
 	case "2":
-		return .60, nil
+		return 60, nil
 	case "3":
-		return .70, nil
+		return 70, nil
 	case "4":
-		return .80, nil
+		return 80, nil
 	case "5":
-		return .90, nil
+		return 90, nil
 	}
 	log.WithFields(log.Fields{
 		"User": userID,
@@ -275,8 +286,9 @@ func DBGetInventory(userID string) UserItems {
 		for i, e := range keys {
 			conv[i], err = strconv.Atoi(e)
 			if err != nil {
-				logError("Unable to convert inventory tier to int", err)
-				return UserItems{}
+				logInfo("Unable to convert inventory tier to int", err)
+				redisClient.HDel(key, i)
+				continue
 			}
 		}
 		err = mapstructure.Decode(conv, &items)
@@ -314,7 +326,7 @@ func DBGetGlobalScore(userID string) float64 {
 func DBGiveGlobalScore(userID string, amt float64) error {
 	err := redisClient.ZIncrBy(ScoreGlobalKey, amt, userID).Err()
 	if err != nil {
-		fmt.Println("error incrementing global exp", err.Error())
+		logError("Unable to increment global exp", err)
 		return err
 	}
 	return nil
@@ -381,7 +393,18 @@ func DBGetItemTier(userID string, item string) int {
 // DBEditItemTier changes a users item tier unsafely (without checking for tier progression)
 func DBEditItemTier(userID string, item string, tier string) error {
 	DBInventoryCheckExists(userID)
-	return redisClient.HSet(InventoryKey(userID), item, tier).Err()
+	if allowedItems[item] && tier <= "5" && tier >= "1" {
+		return redisClient.HSet(InventoryKey(userID), item, tier).Err()
+	}
+	return fmt.Errorf("Item %s not allowed", item)
+}
+
+var allowedItems = map[string]bool{
+	"rod":     true,
+	"hook":    true,
+	"vehicle": true,
+	"baitbox": true,
+	"bait":    true,
 }
 
 // DBEditItemTiersSafe changes a users item tiers and checks for progression
@@ -706,7 +729,7 @@ func DBGetInvSize(userID string) int {
 	key := FishInvKey(userID)
 	fish, _ := strconv.Atoi(redisClient.HGet(key, "fish").Val())
 	legendary, _ := strconv.Atoi(redisClient.HGet(key, "legendary").Val())
-	fmt.Println(fish, legendary)
+	//fmt.Println(fish, legendary)
 	return fish + legendary
 }
 
@@ -772,8 +795,10 @@ func DBGetBaitInv(userID string) BaitInv {
 		for i, e := range inv {
 			b, err := strconv.Atoi(e)
 			if err != nil {
-				logError("Unable to convert bait tiers to int", err)
-				return BaitInv{}
+				logInfo("Fixing broken bait type amt", errors.New("unable to convert bait tier amount to int"))
+				redisClient.HSet(key, i, 0)
+				conv["t"+i] = 0
+				continue
 			}
 			conv["t"+i] = b
 		}
@@ -784,7 +809,6 @@ func DBGetBaitInv(userID string) BaitInv {
 		}
 		return bait
 	}
-	fmt.Println("doesnt exist")
 	err := redisClient.HMSet(key, map[string]interface{}{"1": 0, "2": 0, "3": 0, "4": 0, "5": 0}).Err()
 	if err != nil {
 		logError("Unable to set default bait inventory", err)
@@ -820,7 +844,42 @@ func DBGetBaitUsage(userID string) int {
 
 //
 func DBAddBait(userID string, tier, amt int) (int64, error) {
+	cur, err := DBGetBaitTierAmount(userID, tier)
+	if err != nil {
+		logError("Unable to get current bait tier amount", err)
+		return -1, err
+	}
+	cap := DBGetBaitCapacity(userID)
+
+	if cur+amt > cap && amt != -1 {
+		return -1, fmt.Errorf("%v exceeds the bait limit of %v", cur+amt, cap)
+	}
 	return redisClient.HIncrBy(BaitInvKey(userID), strconv.Itoa(tier), int64(amt)).Result()
+}
+
+//
+func DBGetBaitTierAmount(userID string, tier int) (int, error) {
+	key := BaitInvKey(userID)
+	if keyExists(key) {
+		if a := redisClient.HGet(BaitInvKey(userID), strconv.Itoa(tier)).Val(); a != "" {
+			return strconv.Atoi(a)
+		}
+	}
+	DBSetBaitDefault(userID)
+	return 0, nil
+}
+
+//
+func DBSetBaitDefault(userID string) BaitInv {
+	d := map[string]interface{}{
+		"1": 0,
+		"2": 0,
+		"3": 0,
+		"4": 0,
+		"5": 0,
+	}
+	redisClient.HMSet(BaitInvKey(userID), d)
+	return BaitInv{0, 0, 0, 0, 0}
 }
 
 //
@@ -923,19 +982,19 @@ func keyExists(key string) bool {
 	return redisClient.Exists(key).Val() == int64(1)
 }
 
-func calcBiteRate(density float32) (rate float32) {
+func calcBiteRate(density int64) (rate int64) {
 	if density == 100 {
-		rate = .50
+		rate = 50
 		return
 	}
 
 	if density < 100 {
-		rate = ((float32(0.4) * density) + 10.0) / 100.0
+		rate = int64((float32(0.4) * float32(density)) + 10.0)
 		return
 	}
 
 	if density > 100 {
-		rate = ((float32(0.25) * density) + 25.0) / 100.0
+		rate = int64((float32(0.25) * float32(density)) + 25.0)
 		return
 	}
 	return
