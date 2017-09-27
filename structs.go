@@ -75,35 +75,46 @@ type FishInv struct {
 // ItemData holds the JSON structure for items.json
 type ItemData struct {
 	Bait []struct {
-		Name   string  `json:"name"`
-		Tier   int     `json:"tier"`
-		Cost   int     `json:"cost"`
-		Effect float64 `json:"effect"`
+		Name        string  `json:"name"`
+		ID          string  `json:"id"`
+		Tier        int     `json:"tier"`
+		Cost        int     `json:"cost"`
+		Effect      float64 `json:"effect"`
+		Description string  `json:"description"`
 	} `json:"bait"`
 	Rod []struct {
-		Name   string  `json:"name"`
-		Tier   int     `json:"tier"`
-		Cost   int     `json:"cost"`
-		Effect float64 `json:"effect"`
+		Name        string  `json:"name"`
+		ID          string  `json:"id"`
+		Tier        int     `json:"tier"`
+		Cost        int     `json:"cost"`
+		Effect      float64 `json:"effect"`
+		Description string  `json:"description"`
 	} `json:"rod"`
 	Hook []struct {
-		Name   string  `json:"name"`
-		Tier   int     `json:"tier"`
-		Cost   int     `json:"cost"`
-		Effect float64 `json:"effect"`
+		Name        string  `json:"name"`
+		ID          string  `json:"id"`
+		Tier        int     `json:"tier"`
+		Cost        int     `json:"cost"`
+		Effect      float64 `json:"effect,omitempty"`
+		Description string  `json:"description"`
+		Modifier    float64 `json:"modifier,omitempty"`
 	} `json:"hook"`
 	Vehicle []struct {
-		Name   string `json:"name"`
-		Tier   int    `json:"tier"`
-		Cost   int    `json:"cost"`
-		Effect int    `json:"effect"`
+		Name        string `json:"name"`
+		ID          string `json:"id"`
+		Tier        int    `json:"tier"`
+		Cost        int    `json:"cost"`
+		Effect      int    `json:"effect"`
+		Description string `json:"description"`
 	} `json:"vehicle"`
 	BaitBox []struct {
-		Name   string `json:"name"`
-		Tier   int    `json:"tier"`
-		Cost   int    `json:"cost"`
-		Effect int    `json:"effect"`
-	} `json:"baitbox"`
+		Name        string `json:"name"`
+		ID          string `json:"id"`
+		Tier        int    `json:"tier"`
+		Cost        int    `json:"cost"`
+		Effect      int    `json:"effect"`
+		Description string `json:"description"`
+	} `json:"bait_box"`
 }
 
 // UserItems holds the JSON structure for a users items

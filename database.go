@@ -12,6 +12,9 @@ import (
 	"strings"
 	"time"
 
+	elastic "gopkg.in/olivere/elastic.v5"
+	elogrus "gopkg.in/sohlich/elogrus.v2"
+
 	"github.com/ThyLeader/discordrus"
 	"github.com/go-redis/redis"
 	"github.com/iopred/discordgo"
@@ -21,12 +24,19 @@ import (
 
 var redisClient *redis.Client
 
-// var log = logrus.New()
-
 const locDensityExpiration time.Duration = 3 * time.Hour
 
 func init() {
 	GetConfigs()
+	client, err := elastic.NewClient(elastic.SetURL("http://10.0.0.2:9200"))
+	if err != nil {
+		log.Panic(err)
+	}
+	hook, err := elogrus.NewElasticHook(client, "localhost", log.DebugLevel, "fishy-dev")
+	if err != nil {
+		log.Panic(err)
+	}
+	log.AddHook(hook)
 	log.SetLevel(log.DebugLevel)
 	log.AddHook(discordrus.NewHook(
 		Config.Webhook,

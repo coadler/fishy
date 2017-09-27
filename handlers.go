@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/go-redis/redis"
 	"github.com/gorilla/mux"
 	"github.com/iopred/discordgo"
@@ -155,13 +157,21 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 				go DBLoseBait(msg.Author.ID)
 				newDen, _ := DBGetSetLocDensity(loc, msg.Author.ID)
 				respond(w, makeEmbedFish(f, msg.Author.Username, newDen))
+				log.WithFields(log.Fields{
+					"user":     msg.Author.ID,
+					"guild":    mux.Vars(r)["guildID"],
+					"fish-len": f.Size,
+					"price":    f.Price,
+					"tier":     f.Tier,
+				}).Debug("fish-catch")
 			}
 		}
 	} else {
 		respond(w, makeEmbedFail(msg.Author.Username, loc, failed(e, msg.Author.ID), density))
 	}
-
-	go DBSetRateLimit("fishy", msg.Author.ID, FishyTimeout)
+	if msg.Author.ID != "105484726235607040" {
+		go DBSetRateLimit("fishy", msg.Author.ID, FishyTimeout)
+	}
 }
 
 func makeEmbedFail(user, location, fail string, locDen UserLocDensity) *discordgo.MessageEmbed {
