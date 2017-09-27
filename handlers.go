@@ -33,25 +33,42 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 	var msg *discordgo.Message
 	defer r.Body.Close()
 	if err := readAndUnmarshal(r.Body, &msg); err != nil {
-		respondError(w, fmt.Sprintf(
-			"Error reading and unmarshaling request\n%v", err.Error()))
+		respondError(w,
+			fmt.Sprintf(
+				"Error reading and unmarshaling request\n%v",
+				err.Error(),
+			),
+		)
 		return
 	}
 	go CmdStats("fishy", msg.ID)
 	go DBTrackUser(msg.Author)
 	if DBCheckBlacklist(msg.Author.ID) {
-		respondError(w, fmt.Sprintf(
-			":x: | User %v#%v has been blacklisted from fishing.", msg.Author.Username, msg.Author.Discriminator))
+		respondError(w,
+			fmt.Sprintf(
+				":x: | User %v#%v has been blacklisted from fishing.",
+				msg.Author.Username,
+				msg.Author.Discriminator,
+			),
+		)
 		return
 	}
 	if gathering, timeLeft := DBCheckGatherBait(msg.Author.ID); gathering {
-		respondError(w, fmt.Sprintf(
-			":x: | You are currently gathering bait. Please wait %v for you to finish.", timeLeft.String()))
+		respondError(w,
+			fmt.Sprintf(
+				":x: | You are currently gathering bait. Please wait %v for you to finish.",
+				timeLeft.String(),
+			),
+		)
 		return
 	}
 	if rl, timeLeft := DBCheckRateLimit("fishy", msg.Author.ID); rl {
-		respondError(w, fmt.Sprintf(
-			"Please wait %v before fishing again!", timeLeft.String()))
+		respondError(w,
+			fmt.Sprintf(
+				"Please wait %v before fishing again!",
+				timeLeft.String(),
+			),
+		)
 		return
 	}
 	fmt.Println(msg.Author.Username)
@@ -71,26 +88,35 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if i := sort.SearchStrings(noinv, "hook"); i < len(noinv) && noinv[i] == "hook" {
-			respondError(w, fmt.Sprint(
-				"You cast your line but it just sits on the surface\n"+
-					"*Something inside of you thinks that fish won't bite without a hook...*"))
+			respondError(w,
+				fmt.Sprint(
+					"You cast your line but it just sits on the surface\n"+
+						"*Something inside of you thinks that fish won't bite without a hook...*",
+				),
+			)
 			return
 		}
-		respondError(w, fmt.Sprintf(
-			"You do not own the correct equipment for fishing\n"+
-				"Please buy the following items: %v", strings.Join(noinv, ", ")))
+		respondError(w,
+			fmt.Sprintf(
+				"You do not own the correct equipment for fishing\n"+
+					"Please buy the following items: %v",
+				strings.Join(noinv, ", "),
+			),
+		)
 		return
 	}
 
 	if amt, err := DBGetCurrentBaitAmt(msg.Author.ID); err != nil {
-		respondError(w, fmt.Sprintf(
-			"There was an error"))
+		respondError(w,
+			fmt.Sprintf("There was an error"),
+		)
 		logError("Error converting current bait tier", err)
 		return
 	} else {
 		if amt < 1 {
-			respondError(w, fmt.Sprintf(
-				"You do not own any bait of your currently equipped tier. Please buy more bait or switch tiers."))
+			respondError(w,
+				fmt.Sprintf("You do not own any bait of your currently equipped tier. Please buy more bait or switch tiers."),
+			)
 			return
 		}
 	}
@@ -101,21 +127,26 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 	catch, err := DBGetCatchRate(msg.Author.ID)
 	if err != nil {
 		respondError(w, err.Error())
+		return
 	}
 	fish, err := DBGetFishRate(msg.Author.ID)
 	if err != nil {
 		respondError(w, err.Error())
+		return
 	}
 
 	fc, e := fishCatch(bite, catch, fish)
+	go DBAddCast(msg.Author.ID, mux.Vars(r)["guildID"])
 	if fc {
 		if e == "garbage" {
 			go DBAddFishToInv(msg.Author.ID, "garbage", 5)
+			go DBAddGarbage(msg.Author.ID, mux.Vars(r)["guildID"])
 			respond(w, makeEmbedTrash(msg.Author.Username, loc, randomTrash(), density))
 		}
 		if e == "fish" {
 			level := ExpToTier(DBGetGlobalScore(msg.Author.ID))
 			f := getFish(level, loc)
+			go DBIncrAvgFishStats(msg.Author.ID, mux.Vars(r)["guildID"], f.Size)
 			err := DBAddFishToInv(msg.Author.ID, "fish", f.Price)
 			if err != nil {
 				respondError(w, "Your fish inventory is full and you cannot carry any more. You are forced to throw the fish back.")
@@ -200,7 +231,9 @@ func Inventory(w http.ResponseWriter, r *http.Request) {
 			"fish":     DBGetFishInv(user),
 			"maxFish":  DBGetInvCapacity(user),
 			"maxBait":  DBGetBaitCapacity(user),
-			"userTier": ExpToTier(DBGetGlobalScore(user))})
+			"userTier": ExpToTier(DBGetGlobalScore(user)),
+		},
+	)
 }
 
 // Location is the main route for getting and changing or getting a user's location
@@ -213,7 +246,9 @@ func Location(w http.ResponseWriter, r *http.Request) {
 			APIResponse{
 				true,
 				fmt.Sprint("User blacklisted"),
-				""})
+				"",
+			},
+		)
 		return
 	}
 
@@ -224,13 +259,17 @@ func Location(w http.ResponseWriter, r *http.Request) {
 				APIResponse{
 					true,
 					fmt.Sprint("User does not have a location"),
-					""})
+					"",
+				},
+			)
 		} else {
 			json.NewEncoder(w).Encode(
 				APIResponse{
 					false,
 					"",
-					loc})
+					loc,
+				},
+			)
 		}
 		return
 	}
@@ -242,15 +281,20 @@ func Location(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(
 				APIResponse{
 					true,
-					fmt.Sprintf("Database error: %v \n"+
-						"Please report this error to the developers", err.Error()),
-					""})
+					fmt.Sprintf(
+						"Database error: %v \nPlease report this error to the developers",
+						err.Error()),
+					"",
+				},
+			)
 		} else {
 			json.NewEncoder(w).Encode(
 				APIResponse{
 					false,
 					"",
-					"Location changed successfully"})
+					"Location changed successfully",
+				},
+			)
 		}
 	}
 }
@@ -267,7 +311,9 @@ func BuyItem(w http.ResponseWriter, r *http.Request) {
 			APIResponse{
 				true,
 				fmt.Sprint("Error reading and unmarshaling request:", err.Error()),
-				UserItems{}})
+				UserItems{},
+			},
+		)
 		return
 	}
 
@@ -278,7 +324,9 @@ func BuyItem(w http.ResponseWriter, r *http.Request) {
 			APIResponse{
 				true,
 				fmt.Sprint("User blacklisted"),
-				""})
+				"",
+			},
+		)
 		return
 	}
 
@@ -290,14 +338,18 @@ func BuyItem(w http.ResponseWriter, r *http.Request) {
 			APIResponse{
 				true,
 				fmt.Sprint("Error editing item tier:", err.Error()),
-				UserItems{}})
+				UserItems{},
+			},
+		)
 		return
 	}
 	json.NewEncoder(w).Encode(
 		APIResponse{
 			false,
 			"",
-			DBGetInventory(user)})
+			DBGetInventory(user),
+		},
+	)
 }
 
 // Blacklist blacklists a user from using fishy
@@ -330,20 +382,34 @@ func GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	var scores []LeaderboardUser
 	var err error
 	if err := readAndUnmarshal(r.Body, &data); err != nil {
-		respondError(w, fmt.Sprintf(
-			"Request error: %v", err))
+		respondError(w,
+			fmt.Sprintf(
+				"Request error: %v",
+				err,
+			),
+		)
 		return
 	}
 	if data.Global {
 		s, err = DBGetGlobalScorePage(data.Page)
 		if err != nil {
-			respondError(w, fmt.Sprintf("Could not retrieve scores: %v", err.Error()))
+			respondError(w,
+				fmt.Sprintf(
+					"Could not retrieve scores: %v",
+					err.Error(),
+				),
+			)
 			return
 		}
 	} else {
 		s, err = DBGetGuildScorePage(data.GuildID, data.Page)
 		if err != nil {
-			respondError(w, fmt.Sprintf("Could not retrieve scores: %v", err.Error()))
+			respondError(w,
+				fmt.Sprintf(
+					"Could not retrieve scores: %v",
+					err.Error(),
+				),
+			)
 			return
 		}
 	}
@@ -353,7 +419,12 @@ func GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 
 	l, err := LeaderboardTemp(scores, data.Global, data.User, data.GuildID, data.GuildName)
 	if err != nil {
-		respondError(w, fmt.Sprintf("Could not retrieve scores: %v", err.Error()))
+		respondError(w,
+			fmt.Sprintf(
+				"Could not retrieve scores: %v",
+				err.Error(),
+			),
+		)
 		return
 	}
 	//fmt.Fprint(w, l)
@@ -371,7 +442,13 @@ func CheckTime(w http.ResponseWriter, r *http.Request) {
 		night = true
 	}
 
-	respond(w, TimeData{CurrentTime.Format(time.Kitchen), morning, night})
+	respond(w,
+		TimeData{
+			CurrentTime.Format(time.Kitchen),
+			morning,
+			night,
+		},
+	)
 }
 
 //
@@ -383,8 +460,12 @@ func RandTrash(w http.ResponseWriter, r *http.Request) {
 func CommandStats(w http.ResponseWriter, r *http.Request) {
 	stats, err := DBGetCmdStats("fish") // todo: other commands
 	if err != nil {
-		respondError(w, fmt.Sprintf(
-			"Error retrieving command stats: %v", err))
+		respondError(w,
+			fmt.Sprintf(
+				"Error retrieving command stats: %v",
+				err,
+			),
+		)
 		return
 	}
 	respond(w, stats)
@@ -392,7 +473,13 @@ func CommandStats(w http.ResponseWriter, r *http.Request) {
 
 //
 func RandFish(w http.ResponseWriter, r *http.Request) {
-	respond(w, makeEmbedFish(getFish(5, "ocean"), "hey idiot", UserLocDensity{}))
+	respond(w,
+		makeEmbedFish(
+			getFish(5, "ocean"),
+			"hey idiot",
+			UserLocDensity{},
+		),
+	)
 }
 
 //
@@ -403,7 +490,9 @@ func BaitInvGet(w http.ResponseWriter, r *http.Request) {
 			"maxBait":          DBGetBaitCapacity(user),
 			"currentBaitCount": DBGetBaitUsage(user),
 			"bait":             DBGetBaitInv(user),
-			"currentTier":      DBGetCurrentBaitTier(user)})
+			"currentTier":      DBGetCurrentBaitTier(user),
+		},
+	)
 }
 
 //
@@ -453,15 +542,24 @@ func EquippedBaitPost(w http.ResponseWriter, r *http.Request) {
 }
 
 //
-func FishInventory(w http.ResponseWriter, r *http.Request) {
-
-}
-
-//
 func SellFish(w http.ResponseWriter, r *http.Request) {
 	user := mux.Vars(r)["userID"]
 	worth := DBSellFish(user)
 	respond(w, fmt.Sprintf("You redeemed %s fish, %s legendaries, and %s garbage for %s :yen:", worth["fish"], worth["legendaries"], worth["garbage"], worth["worth"]))
+}
+
+//
+func Stats(w http.ResponseWriter, r *http.Request) {
+	user := mux.Vars(r)["userID"]
+	guild := mux.Vars(r)["guildID"]
+	globalStats := DBGetGlobalStats(user)
+	guildStats := DBGetGuildStats(user, guild)
+	respond(w,
+		map[string]interface{}{
+			"guild":  guildStats,
+			"global": globalStats,
+		},
+	)
 }
 
 func respond(w http.ResponseWriter, data interface{}) {
@@ -471,7 +569,9 @@ func respond(w http.ResponseWriter, data interface{}) {
 		APIResponse{
 			false,
 			"",
-			data})
+			data,
+		},
+	)
 }
 
 func respondError(w http.ResponseWriter, err string) {
@@ -479,7 +579,9 @@ func respondError(w http.ResponseWriter, err string) {
 		APIResponse{
 			true,
 			err,
-			""})
+			"",
+		},
+	)
 }
 
 func fishCatch(bite, catch, fish int64) (bool, string) {

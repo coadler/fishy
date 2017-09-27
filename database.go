@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ThyLeader/discordrus"
@@ -536,12 +537,35 @@ func DBGetInvEE(userID string) int {
 // DBGetGlobalStats gets a users global stats
 func DBGetGlobalStats(userID string) UserStats {
 	var stats UserStats
+	var conv = map[string]interface{}{}
 	key := GlobalStatsKey(userID)
 	if keyExists(key) {
 		data := redisClient.HGetAll(key).Val()
-		err := mapstructure.Decode(data, &stats)
+		for i, e := range data {
+			switch strings.ToLower(i) {
+			case "garbage", "fish", "casts":
+				c, err := strconv.Atoi(e)
+				if err != nil {
+					logError("error converting stat value to int", err)
+					redisClient.HSet(key, i, 0)
+					conv[i] = 0
+					continue
+				}
+				conv[i] = c
+			case "avglength":
+				c, err := strconv.ParseFloat(e, 64)
+				if err != nil {
+					logError("error converting stat value to int", err)
+					redisClient.HSet(key, i, 0)
+					conv[i] = float64(0)
+					continue
+				}
+				conv[i] = c
+			}
+		}
+		err := mapstructure.Decode(conv, &stats)
 		if err != nil {
-			logError("Unable to decode global stats map", err)
+			logError("Unable to decode guild stats map", err)
 			return UserStats{}
 		}
 		return stats
@@ -553,10 +577,33 @@ func DBGetGlobalStats(userID string) UserStats {
 // DBGetGuildStats gets a users guild stats
 func DBGetGuildStats(userID, guildID string) UserStats {
 	var stats UserStats
+	var conv = map[string]interface{}{}
 	key := GuildStatsKey(userID, guildID)
 	if keyExists(key) {
 		data := redisClient.HGetAll(key).Val()
-		err := mapstructure.Decode(data, &stats)
+		for i, e := range data {
+			switch strings.ToLower(i) {
+			case "garbage", "fish", "casts":
+				c, err := strconv.Atoi(e)
+				if err != nil {
+					logError("error converting stat value to int", err)
+					redisClient.HSet(key, i, 0)
+					conv[i] = 0
+					continue
+				}
+				conv[i] = c
+			case "avglength":
+				c, err := strconv.ParseFloat(e, 64)
+				if err != nil {
+					logError("error converting stat value to int", err)
+					redisClient.HSet(key, i, 0)
+					conv[i] = float64(0)
+					continue
+				}
+				conv[i] = c
+			}
+		}
+		err := mapstructure.Decode(conv, &stats)
 		if err != nil {
 			logError("Unable to decode guild stats map", err)
 			return UserStats{}
@@ -602,7 +649,7 @@ func DBAddGlobalGarbage(userID string) {
 
 // DBAddGuildGarbage adds one to a users guild garbage stats
 func DBAddGuildGarbage(userID, guildID string) {
-	err := redisClient.HIncrBy(GuildStatsKey(userID, guildID), "casts", 1).Err()
+	err := redisClient.HIncrBy(GuildStatsKey(userID, guildID), "garbage", 1).Err()
 	if err != nil {
 		logError("Unable to increment guild garbage stat", err)
 		return
@@ -618,27 +665,19 @@ func DBAddGarbage(userID, guildID string) {
 //
 func DBIncrGlobalAvgFishStats(userID string, len float64) {
 	key := GlobalStatsKey(userID)
-	totF, err := strconv.ParseFloat(redisClient.HGet(key, "fish").Val(), 64)
-	if err != nil {
-		logError("Unable to parse total fish stat", err)
-		return
-	}
-	avg, err := strconv.ParseFloat(redisClient.HGet(key, "avgLength").Val(), 64)
-	if err != nil {
-		logError("Unable to parse avg fish length stat", err)
-		return
-	}
-	totL := totF * avg
-	totF++
-	totL += len
-	avg = totL / totF
+	stats := DBGetGlobalStats(userID)
 
-	err = redisClient.HSet(key, "fish", totF).Err()
+	totL := float64(stats.Fish) * float64(stats.AvgLength)
+	stats.Fish++
+	totL += len
+	stats.AvgLength = totL / float64(stats.Fish)
+
+	err := redisClient.HSet(key, "fish", stats.Fish).Err()
 	if err != nil {
 		logError("Unable to set new fish stat", err)
 		return
 	}
-	err = redisClient.HSet(key, "avgLength", avg).Err()
+	err = redisClient.HSet(key, "avgLength", stats.AvgLength).Err()
 	if err != nil {
 		logError("Unable to set new avgLength stat", err)
 		return
@@ -648,27 +687,19 @@ func DBIncrGlobalAvgFishStats(userID string, len float64) {
 //
 func DBIncrGuildAvgFishStats(userID, guildID string, len float64) {
 	key := GuildStatsKey(userID, guildID)
-	totF, err := strconv.ParseFloat(redisClient.HGet(key, "fish").Val(), 64)
-	if err != nil {
-		logError("Unable to parse total fish", err)
-		return
-	}
-	avg, err := strconv.ParseFloat(redisClient.HGet(key, "avgLength").Val(), 64)
-	if err != nil {
-		logError("Unable to parse avg fish length", err)
-		return
-	}
-	totL := totF * avg
-	totF++
-	totL += len
-	avg = totL / totF
+	stats := DBGetGuildStats(userID, guildID)
 
-	err = redisClient.HSet(key, "fish", totF).Err()
+	totL := float64(stats.Fish) * float64(stats.AvgLength)
+	stats.Fish++
+	totL += len
+	stats.AvgLength = totL / float64(stats.Fish)
+
+	err := redisClient.HSet(key, "fish", stats.Fish).Err()
 	if err != nil {
 		logError("Unable to set new fish total fish", err)
 		return
 	}
-	err = redisClient.HSet(key, "avgLength", avg).Err()
+	err = redisClient.HSet(key, "avgLength", stats.AvgLength).Err()
 	if err != nil {
 		logError("Unable to set new avgLength stat", err)
 		return
@@ -691,7 +722,6 @@ func DBGetFishInv(userID string) FishInv {
 	conv := map[string]int{}
 	inv := FishInv{}
 	keys := redisClient.HGetAll(key).Val()
-	fmt.Printf("%+v", keys)
 	for i, e := range keys {
 		c, err := strconv.Atoi(e)
 		if err != nil {

@@ -23,7 +23,7 @@ var routes = Routes{
 	Route{
 		"Fish",
 		"POST",
-		"/v1/fish",
+		"/v1/fish/{guildID}",
 		Fishy,
 	},
 	Route{
@@ -136,8 +136,14 @@ var routes = Routes{
 	},
 	Route{
 		"SellFish",
-		"Get",
+		"GET",
 		"/v1/inventory/sell/{userID}",
 		SellFish,
+	},
+	Route{
+		"Stats",
+		"GET",
+		"/v1/stats/{guildID}/{userID}",
+		Stats,
 	},
 }

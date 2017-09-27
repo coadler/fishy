@@ -215,7 +215,7 @@ type SecretStrings struct {
 type UserStats struct {
 	Garbage   int     `json:"garbage"`
 	Fish      int     `json:"fish"`
-	AvgLength float32 `json:"avglength"`
+	AvgLength float64 `json:"avglength"`
 	Casts     int     `json:"casts"`
 }
 
