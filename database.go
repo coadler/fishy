@@ -407,11 +407,12 @@ func DBEditItemTier(userID string, item string, tier string) error {
 }
 
 var allowedItems = map[string]bool{
-	"rod":     true,
-	"hook":    true,
-	"vehicle": true,
-	"baitbox": true,
-	"bait":    true,
+	"rod":      true,
+	"hook":     true,
+	"vehicle":  true,
+	"baitbox":  true,
+	"bait_box": true,
+	"bait":     true,
 }
 
 // DBEditItemTiersSafe changes a users item tiers and checks for progression
