@@ -996,7 +996,11 @@ func DBGetOwnedItems(userID, item string) []int {
 
 //
 func DBEditOwnedItems(userID, item string, items []int) error {
-	return redisClient.SAdd(OwnedItemKey(userID, item), items).Err()
+	conv := []string{}
+	for _, e := range items {
+		conv = append(conv, strconv.Itoa(e))
+	}
+	return redisClient.SAdd(OwnedItemKey(userID, item), conv).Err()
 }
 
 // this is useless but i wanna keep it cuz it looks cool
