@@ -237,52 +237,45 @@ func DBGetBiteRate(userID string, locDen UserLocDensity, loc string) int64 {
 	}
 	log.WithFields(log.Fields{
 		"User":     userID,
-		"Location": loc}).Error("User does not have a known location")
+		"Location": loc,
+	}).Error("User does not have a known location")
 	return 0
 }
 
 //
 func DBGetCatchRate(userID string) (int64, error) {
-	rod := redisClient.HGet(InventoryKey(userID), "rod").Val()
-	switch rod {
-	case "200":
+	inv := DBGetInventory(userID)
+	switch inv.Rod.Current {
+	case 200:
 		return 50, nil
-	case "201":
+	case 201:
 		return 55, nil
-	case "202":
+	case 202:
 		return 60, nil
-	case "203":
+	case 203:
 		return 70, nil
-	case "204":
+	case 204:
 		return 80, nil
 	}
-	log.WithFields(log.Fields{
-		"User": userID,
-		"Rod":  rod,
-	}).Error("Invalid rod tier")
-	return 0, errors.New("Invalid rod tier")
+	return 50, nil
 }
 
 //
 func DBGetFishRate(userID string) (int64, error) {
-	hook := redisClient.HGet(InventoryKey(userID), "hook").Val()
-	switch hook {
-	case "300":
+	inv := DBGetInventory(userID)
+	switch inv.Hook.Current {
+	case 300:
 		return 50, nil
-	case "301":
+	case 301:
 		return 60, nil
-	case "302":
+	case 302:
 		return 70, nil
-	case "303":
+	case 303:
 		return 80, nil
-	case "304":
+	case 304:
 		return 90, nil
 	}
-	log.WithFields(log.Fields{
-		"User": userID,
-		"Hook": hook,
-	}).Error("Invalid hook tier")
-	return 0, errors.New("Invalid hook tier")
+	return 50, nil
 }
 
 // DBGetInventory returns a users inventory tiers
