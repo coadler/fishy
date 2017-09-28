@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -9,6 +10,7 @@ var (
 	LocDensityKey  = func(userID string) string { return "user:locationdensity:" + userID }
 	LocationKey    = func(userID string) string { return "user:location:" + userID }
 	InventoryKey   = func(userID string) string { return "user:inventory:" + userID }
+	OwnedItemKey   = func(userID, item string) string { return fmt.Sprintf("user:inventory:%s:%s", userID, item) }
 	BlackListKey   = func(userID string) string { return "user:blacklist:" + userID }
 	GatherBaitKey  = func(userID string) string { return "user:gatherbait:" + userID }
 	UserTrackKey   = func(userID string) string { return "user:" + userID }

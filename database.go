@@ -286,7 +286,7 @@ func DBGetFishRate(userID string) (int64, error) {
 // DBGetInventory returns a users inventory tiers
 func DBGetInventory(userID string) UserItems {
 	var items UserItems
-	conv := map[string]int{}
+	conv := map[string]map[string]interface{}{}
 	key := InventoryKey(userID)
 	if DBInventoryCheckExists(userID) {
 		keys, err := redisClient.HGetAll(key).Result()
@@ -295,12 +295,13 @@ func DBGetInventory(userID string) UserItems {
 			return UserItems{}
 		}
 		for i, e := range keys {
-			conv[i], err = strconv.Atoi(e)
+			c, err := strconv.Atoi(e)
 			if err != nil {
 				logInfo("Unable to convert inventory tier to int", err)
 				redisClient.HDel(key, i)
 				continue
 			}
+			conv[i] = map[string]interface{}{"current": c, "owned": DBGetOwnedItems(userID, i)}
 		}
 		err = mapstructure.Decode(conv, &items)
 		if err != nil {
@@ -309,7 +310,7 @@ func DBGetInventory(userID string) UserItems {
 		}
 		return items
 	}
-	return UserItems{0, 0, 0, 0, 0}
+	return UserItems{}
 }
 
 // DBInventoryCheckExists makes sure a user has an inventory key before modifying it
@@ -966,6 +967,36 @@ func DBLoseBait(userID string) (int, error) {
 		return -1, errors.New("Error subtracting bait")
 	}
 	return int(rem), nil
+}
+
+//
+func DBGetOwnedItems(userID, item string) []int {
+	key := OwnedItemKey(userID, item)
+	if keyExists(key) {
+		conv := []int{}
+		owned, err := redisClient.SMembers(key).Result()
+		if err != nil {
+			logError("error retrieving owned items", err)
+			return []int{}
+		}
+		for _, e := range owned {
+			if e != "" {
+				c, err := strconv.Atoi(e)
+				if err != nil {
+					logError("unable to convert owned item to int", err)
+					continue
+				}
+				conv = append(conv, c)
+			}
+		}
+		return conv
+	}
+	return []int{}
+}
+
+//
+func DBEditOwnedItems(userID, item string, items []int) error {
+	return redisClient.SAdd(OwnedItemKey(userID, item), items).Err()
 }
 
 // this is useless but i wanna keep it cuz it looks cool

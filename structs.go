@@ -118,12 +118,35 @@ type ItemData struct {
 }
 
 // UserItems holds the JSON structure for a users items
+// type UserItems struct {
+// 	Bait    int `json:"bait"`
+// 	Rod     int `json:"rod"`
+// 	Hook    int `json:"hook"`
+// 	Vehicle int `json:"vehicle"`
+// 	BaitBox int `json:"baitbox"`
+// }
+
 type UserItems struct {
-	Bait    int `json:"bait"`
-	Rod     int `json:"rod"`
-	Hook    int `json:"hook"`
-	Vehicle int `json:"vehicle"`
-	BaitBox int `json:"baitbox"`
+	Bait struct {
+		Current int   `json:"current"`
+		Owned   []int `json:"owned"`
+	} `json:"bait"`
+	Rod struct {
+		Current int   `json:"current"`
+		Owned   []int `json:"owned"`
+	} `json:"rod"`
+	Hook struct {
+		Current int   `json:"current"`
+		Owned   []int `json:"owned"`
+	} `json:"hook"`
+	Vehicle struct {
+		Current int   `json:"current"`
+		Owned   []int `json:"owned"`
+	} `json:"vehicle"`
+	BaitBox struct {
+		Current int   `json:"current"`
+		Owned   []int `json:"owned"`
+	} `json:"bait_box"`
 }
 
 //
@@ -175,8 +198,9 @@ type LevelData struct {
 
 // BuyItemRequest holds the request structure for buying an item
 type BuyItemRequest struct {
-	Item string `json:"item"`
-	Tier string `json:"tier"`
+	Category string `json:"category"`
+	Current  int    `json:"current"`
+	Owned    []int  `json:"owned"`
 }
 
 // APIResponse is a standard API response
