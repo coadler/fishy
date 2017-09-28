@@ -245,20 +245,21 @@ func DBGetBiteRate(userID string, locDen UserLocDensity, loc string) int64 {
 func DBGetCatchRate(userID string) (int64, error) {
 	rod := redisClient.HGet(InventoryKey(userID), "rod").Val()
 	switch rod {
-	case "1":
+	case "200":
 		return 50, nil
-	case "2":
+	case "201":
 		return 55, nil
-	case "3":
+	case "202":
 		return 60, nil
-	case "4":
+	case "203":
 		return 70, nil
-	case "5":
+	case "204":
 		return 80, nil
 	}
 	log.WithFields(log.Fields{
 		"User": userID,
-		"Rod":  rod}).Error("Invalid rod tier")
+		"Rod":  rod,
+	}).Error("Invalid rod tier")
 	return 0, errors.New("Invalid rod tier")
 }
 
@@ -266,20 +267,21 @@ func DBGetCatchRate(userID string) (int64, error) {
 func DBGetFishRate(userID string) (int64, error) {
 	hook := redisClient.HGet(InventoryKey(userID), "hook").Val()
 	switch hook {
-	case "1":
+	case "300":
 		return 50, nil
-	case "2":
+	case "301":
 		return 60, nil
-	case "3":
+	case "302":
 		return 70, nil
-	case "4":
+	case "303":
 		return 80, nil
-	case "5":
+	case "304":
 		return 90, nil
 	}
 	log.WithFields(log.Fields{
 		"User": userID,
-		"Hook": hook}).Error("Invalid hook tier")
+		"Hook": hook,
+	}).Error("Invalid hook tier")
 	return 0, errors.New("Invalid hook tier")
 }
 
@@ -784,19 +786,15 @@ func DBSellFish(userID string) map[string]string {
 
 //
 func DBGetInvCapacity(userID string) int {
-	cap, err := strconv.Atoi(redisClient.HGet(InventoryKey(userID), "vehicle").Val())
-	if err != nil {
-		logError("Unable to convert vehicle tier to int", err)
-		return 0
-	}
-	switch cap {
-	case 2:
+	inv := DBGetInventory(userID)
+	switch inv.Vehicle.Current {
+	case 401:
 		return 50
-	case 3:
+	case 402:
 		return 100
-	case 4:
+	case 403:
 		return 250
-	case 5:
+	case 404:
 		return 500
 	}
 	return 25
@@ -804,19 +802,15 @@ func DBGetInvCapacity(userID string) int {
 
 //
 func DBGetBaitCapacity(userID string) int {
-	cap, err := strconv.Atoi(redisClient.HGet(InventoryKey(userID), "baitbox").Val())
-	if err != nil {
-		logError("Unable to convert baitbox tier to int", err)
-		return 0
-	}
-	switch cap {
-	case 2:
+	inv := DBGetInventory(userID)
+	switch inv.BaitBox.Current {
+	case 501:
 		return 50
-	case 3:
+	case 502:
 		return 75
-	case 4:
+	case 503:
 		return 100
-	case 5:
+	case 504:
 		return 150
 	}
 	return 25
