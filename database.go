@@ -1000,7 +1000,7 @@ func DBEditOwnedItems(userID, item string, items []int) error {
 	for _, e := range items {
 		conv = append(conv, strconv.Itoa(e))
 	}
-	return redisClient.SAdd(OwnedItemKey(userID, item), conv).Err()
+	return redisClient.SAdd(OwnedItemKey(userID, item), conv...).Err()
 }
 
 // this is useless but i wanna keep it cuz it looks cool
