@@ -524,18 +524,23 @@ func BaitInvPost(w http.ResponseWriter, r *http.Request) {
 	err := readAndUnmarshal(r.Body, &bait)
 	if err != nil {
 		respondError(w, true,
-			fmt.Sprintf("Error unmarshaling request: %s", err.Error()))
+			fmt.Sprintf("Error unmarshaling request: %s", err.Error()),
+		)
 		return
 	}
-	amt, err := DBAddBait(user, bait.Tier, bait.Amount)
+	before, amt, err := DBAddBait(user, bait.Tier, bait.Amount)
 	if err != nil {
 		respondError(w, true,
-			fmt.Sprintf("Error adding bait: %s", err.Error()))
+			fmt.Sprintf("Error adding bait: %s", err.Error()),
+		)
 		return
 	}
 	respond(w,
 		map[string]interface{}{
-			"new": amt})
+			"new":   amt,
+			"added": amt - int64(before),
+		},
+	)
 }
 
 //

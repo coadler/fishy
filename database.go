@@ -884,18 +884,19 @@ func DBGetBaitUsage(userID string) int {
 }
 
 //
-func DBAddBait(userID string, tier, amt int) (int64, error) {
+func DBAddBait(userID string, tier, amt int) (int, int64, error) {
 	cur, err := DBGetBaitTierAmount(userID, tier)
 	if err != nil {
 		logError("Unable to get current bait tier amount", err)
-		return -1, err
+		return -1, -1, err
 	}
 	cap := DBGetBaitCapacity(userID)
 
 	if cur+amt > cap && amt != -1 {
-		return -1, fmt.Errorf("%v exceeds the bait limit of %v", cur+amt, cap)
+		return -1, -1, fmt.Errorf("%v exceeds the bait limit of %v", cur+amt, cap)
 	}
-	return redisClient.HIncrBy(BaitInvKey(userID), strconv.Itoa(tier), int64(amt)).Result()
+	tot, err := redisClient.HIncrBy(BaitInvKey(userID), strconv.Itoa(tier), int64(amt)).Result()
+	return cur, tot, err
 }
 
 //
