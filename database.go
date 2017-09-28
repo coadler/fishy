@@ -962,7 +962,7 @@ func DBGetCurrentBaitAmt(userID string) (int, error) {
 
 //
 func DBLoseBait(userID string) (int, error) {
-	rem, err := DBAddBait(userID, DBGetCurrentBaitTier(userID), -1)
+	_, rem, err := DBAddBait(userID, DBGetCurrentBaitTier(userID), -1)
 	if err != nil {
 		logError("Error subtracting bait after successful catch", err)
 		return -1, errors.New("Error subtracting bait")
