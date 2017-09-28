@@ -405,7 +405,7 @@ func DBGetItemTier(userID string, item string) int {
 // DBEditItemTier changes a users item tier unsafely (without checking for tier progression)
 func DBEditItemTier(userID string, item string, tier string) error {
 	DBInventoryCheckExists(userID)
-	if allowedItems[item] && tier <= "5" && tier >= "1" {
+	if allowedItems[item] {
 		return redisClient.HSet(InventoryKey(userID), item, tier).Err()
 	}
 	return fmt.Errorf("Item %s not allowed", item)
