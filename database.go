@@ -996,7 +996,7 @@ func DBGetOwnedItems(userID, item string) []int {
 
 //
 func DBEditOwnedItems(userID, item string, items []int) error {
-	conv := []string{}
+	conv := []interface{}{}
 	for _, e := range items {
 		conv = append(conv, strconv.Itoa(e))
 	}
