@@ -136,7 +136,7 @@ var routes = Routes{
 	},
 	Route{
 		"SellFish",
-		"GET",
+		"POST",
 		"/v1/inventory/sell/{userID}",
 		SellFish,
 	},
