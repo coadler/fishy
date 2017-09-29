@@ -513,6 +513,7 @@ func BaitInvGet(w http.ResponseWriter, r *http.Request) {
 			"currentBaitCount": DBGetBaitUsage(user),
 			"bait":             DBGetBaitInv(user),
 			"currentTier":      DBGetCurrentBaitTier(user),
+			"baitbox":          DBGetInventory(user).BaitBox.Current,
 		},
 	)
 }
@@ -547,7 +548,9 @@ func BaitInvPost(w http.ResponseWriter, r *http.Request) {
 func EquippedBaitGet(w http.ResponseWriter, r *http.Request) {
 	respond(w,
 		map[string]interface{}{
-			"tier": DBGetCurrentBaitTier(mux.Vars(r)["userID"])})
+			"tier": DBGetCurrentBaitTier(mux.Vars(r)["userID"]),
+		},
+	)
 }
 
 //
@@ -572,7 +575,12 @@ func EquippedBaitPost(w http.ResponseWriter, r *http.Request) {
 func SellFish(w http.ResponseWriter, r *http.Request) {
 	user := mux.Vars(r)["userID"]
 	worth := DBSellFish(user)
-	respond(w, fmt.Sprintf("You redeemed %s fish, %s legendaries, and %s garbage for %s :yen:", worth["fish"], worth["legendaries"], worth["garbage"], worth["worth"]))
+	respond(w,
+		fmt.Sprintf(
+			"You redeemed %s fish, %s legendaries, and %s garbage for %s :yen:",
+			worth["fish"], worth["legendaries"], worth["garbage"], worth["worth"],
+		),
+	)
 }
 
 //
