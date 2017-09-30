@@ -144,6 +144,17 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 			go DBAddFishToInv(msg.Author.ID, "garbage", 5)
 			go DBAddGarbage(msg.Author.ID, mux.Vars(r)["guildID"])
 			respond(w, makeEmbedTrash(msg.Author.Username, loc, randomTrash(), density))
+			log.WithFields(log.Fields{
+				"user":     msg.Author.ID,
+				"guild":    mux.Vars(r)["guildID"],
+				"location": loc,
+				"rates": map[string]interface{}{
+					"bite":  bite,
+					"catch": catch,
+					"fish":  fish,
+				},
+				"density": density,
+			}).Debug("garbage-catch")
 		}
 		if e == "fish" {
 			level := ExpToTier(DBGetGlobalScore(msg.Author.ID))
@@ -163,14 +174,27 @@ func Fishy(w http.ResponseWriter, r *http.Request) {
 					"fish-len": f.Size,
 					"price":    f.Price,
 					"tier":     f.Tier,
+					"rates": map[string]interface{}{
+						"bite":  bite,
+						"catch": catch,
+						"fish":  fish,
+					},
+					"density": density,
 				}).Debug("fish-catch")
 			}
 		}
 	} else {
 		respond(w, makeEmbedFail(msg.Author.Username, loc, failed(e, msg.Author.ID), density))
-	}
-	if msg.Author.ID != "105484726235607040" {
-		go DBSetRateLimit("fishy", msg.Author.ID, FishyTimeout)
+		log.WithFields(log.Fields{
+			"user":  msg.Author.ID,
+			"guild": mux.Vars(r)["guildID"],
+			"rates": map[string]interface{}{
+				"bite":  bite,
+				"catch": catch,
+				"fish":  fish,
+			},
+			"density": density,
+		}).Debug("fail-catch")
 	}
 }
 
@@ -297,6 +321,7 @@ func Location(w http.ResponseWriter, r *http.Request) {
 					"",
 				},
 			)
+			logError("unable to change location", err)
 		} else {
 			json.NewEncoder(w).Encode(
 				APIResponse{
@@ -305,6 +330,10 @@ func Location(w http.ResponseWriter, r *http.Request) {
 					"Location changed successfully",
 				},
 			)
+			log.WithFields(log.Fields{
+				"user":     user,
+				"location": loc,
+			}).Debug("location-change")
 		}
 	}
 }
@@ -372,6 +401,11 @@ func BuyItem(w http.ResponseWriter, r *http.Request) {
 			DBGetInventory(user),
 		},
 	)
+	log.WithFields(log.Fields{
+		"user":     user,
+		"category": item.Category,
+		"item":     fmt.Sprintf("%v", item.Current),
+	}).Debug("item-bought")
 }
 
 // Blacklist blacklists a user from using fishy
@@ -390,6 +424,9 @@ func Unblacklist(w http.ResponseWriter, r *http.Request) {
 func StartGatherBait(w http.ResponseWriter, r *http.Request) {
 	DBStartGatherBait(mux.Vars(r)["userID"])
 	fmt.Fprint(w, ":ok_hand: you decide to spend the next 6 hours filling up your bait box with bait")
+	log.WithFields(log.Fields{
+		"user": mux.Vars(r)["userID"],
+	}).Debug("user-gather-bait")
 }
 
 // CheckGatherBait checks to see if a user is still gathering bait and will return the time remaining
@@ -581,6 +618,13 @@ func SellFish(w http.ResponseWriter, r *http.Request) {
 			worth["fish"], worth["legendaries"], worth["garbage"], worth["worth"],
 		),
 	)
+	log.WithFields(log.Fields{
+		"user":        user,
+		"worth":       worth["worth"],
+		"fish":        worth["fish"],
+		"legendaries": worth["legendaries"],
+		"garbage":     worth["garbage"],
+	}).Debug("user-sell-fish")
 }
 
 //
@@ -595,6 +639,10 @@ func Stats(w http.ResponseWriter, r *http.Request) {
 			"global": globalStats,
 		},
 	)
+	log.WithFields(log.Fields{
+		"user":  user,
+		"guild": guild,
+	}).Debug("user-stats")
 }
 
 func respond(w http.ResponseWriter, data interface{}) {
@@ -711,8 +759,16 @@ func getFish(tier int, location string) InvFish {
 	}
 	r := float64(rand2)
 	r += pRand.Float64()
-	fmt.Println(rand2, r)
 	sellPrice := getFishPrice(_tier, float64(_fish.Size[0]), float64(_fish.Size[1]), r)
+	log.WithFields(log.Fields{
+		"tier":     _tier,
+		"location": location,
+		"fish": map[string]interface{}{
+			"name":  _fish.Name,
+			"size":  r,
+			"price": sellPrice,
+		},
+	}).Debug("rand-fish")
 	return InvFish{location, _fish.Name, sellPrice, r, _tier, _fish.Pun, _fish.Image}
 }
 

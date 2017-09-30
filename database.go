@@ -133,33 +133,46 @@ func DBSetLocDensity(location string, userID string) (UserLocDensity, error) {
 	}
 	randDensity := int(r1.Int64()) + 1
 	randLocation := int(r2.Int64())
+	loc := ""
 
-	fmt.Println(randDensity, randLocation)
 	switch location {
 	case "lake":
 		LocDensity.Lake -= randDensity
 		if randLocation < 50 {
 			LocDensity.River += randDensity
+			loc = "river"
 		} else {
 			LocDensity.Ocean += randDensity
+			loc = "ocean"
 		}
 	case "river":
 		LocDensity.River -= randDensity
 		if randLocation < 50 {
 			LocDensity.Lake += randDensity
+			loc = "lake"
 		} else {
 			LocDensity.Ocean += randDensity
+			loc = "ocean"
 		}
 	case "ocean":
 		LocDensity.Ocean -= randDensity
 		if randLocation < 50 {
 			LocDensity.Lake += randDensity
+			loc = "lake"
 		} else {
 			LocDensity.River += randDensity
+			loc = "river"
 		}
 	default:
 		return UserLocDensity{}, errors.New("Invalid Location")
 	}
+
+	go log.WithFields(log.Fields{
+		"user":             userID,
+		"rand-density":     randDensity,
+		"rand-location":    loc,
+		"current-location": location,
+	}).Debug("loc-density-change")
 
 	go marshalAndSet(LocDensity, key, locDensityExpiration)
 	return LocDensity, nil
@@ -305,7 +318,15 @@ func DBGetInventory(userID string) UserItems {
 		}
 		return items
 	}
-	return UserItems{}
+	return defaultUserItems
+}
+
+var defaultUserItems = UserItems{
+	UserItem{0, []int{}},
+	UserItem{0, []int{}},
+	UserItem{0, []int{}},
+	UserItem{0, []int{}},
+	UserItem{0, []int{}},
 }
 
 // DBInventoryCheckExists makes sure a user has an inventory key before modifying it

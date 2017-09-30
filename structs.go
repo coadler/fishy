@@ -126,30 +126,22 @@ type ItemData struct {
 // 	BaitBox int `json:"baitbox"`
 // }
 
+// UserItems stores all the item categories for a specific user
 type UserItems struct {
-	Bait struct {
-		Current int   `json:"current"`
-		Owned   []int `json:"owned"`
-	} `json:"bait"`
-	Rod struct {
-		Current int   `json:"current"`
-		Owned   []int `json:"owned"`
-	} `json:"rod"`
-	Hook struct {
-		Current int   `json:"current"`
-		Owned   []int `json:"owned"`
-	} `json:"hook"`
-	Vehicle struct {
-		Current int   `json:"current"`
-		Owned   []int `json:"owned"`
-	} `json:"vehicle"`
-	BaitBox struct {
-		Current int   `json:"current"`
-		Owned   []int `json:"owned"`
-	} `json:"bait_box"`
+	Bait    UserItem `json:"bait"`
+	Rod     UserItem `json:"rod"`
+	Hook    UserItem `json:"hook"`
+	Vehicle UserItem `json:"vehicle"`
+	BaitBox UserItem `json:"bait_box"`
 }
 
-//
+// UserItem stores the data for each item category
+type UserItem struct {
+	Current int   `json:"current"`
+	Owned   []int `json:"owned"`
+}
+
+// BaitInv stores the bait tier amounts for a specific user
 type BaitInv struct {
 	T1 int `json:"t1"`
 	T2 int `json:"t2"`
@@ -158,7 +150,7 @@ type BaitInv struct {
 	T5 int `json:"t5"`
 }
 
-//
+// BaitRequest stores the data for BaitInvPost
 type BaitRequest struct {
 	Tier   int `json:"tier"`
 	Amount int `json:"amount"`
@@ -210,7 +202,7 @@ type APIResponse struct {
 	Data    interface{} `json:"data"`
 }
 
-//
+// LeaderboardRequest stores the data for GetLeaderboard
 type LeaderboardRequest struct {
 	Global    bool   `json:"global"`
 	Page      int    `json:"page"`
