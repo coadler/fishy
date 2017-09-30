@@ -27,12 +27,6 @@ var routes = Routes{
 		Fishy,
 	},
 	Route{
-		"Websocket",
-		"GET",
-		"/v1/ws",
-		OpenWS,
-	},
-	Route{
 		"GetLocation",
 		"GET",
 		"/v1/location/{userID}",
