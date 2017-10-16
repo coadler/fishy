@@ -1,6 +1,10 @@
 package database
 
-import "github.com/go-redis/redis"
+import (
+	"time"
+
+	"github.com/go-redis/redis"
+)
 
 var redisClient *redis.Client
 
@@ -11,5 +15,17 @@ func Init(url, password string, db int) error {
 		Password: password,
 		DB:       db,
 	})
+
+	// Prune stats timer
+	p := time.Tick(1 * time.Minute)
+	go func() {
+		for {
+			select {
+			case <-p:
+				go pruneStats()
+			}
+		}
+	}()
+
 	return redisClient.Ping().Err()
 }
