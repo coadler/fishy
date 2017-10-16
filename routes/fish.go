@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	pRand "math/rand"
 	"sort"
 	"strings"
 
@@ -230,12 +231,12 @@ func fishCatch(bite, catch, fish int64) (bool, string) {
 }
 
 func randomTrash() string {
-	if r, err := rand.Int(rand.Reader, big.NewInt(int64(len(database.Trash.Regular.Text)-1))); err != nil {
-		log.WithField("err", err).Error("failed to generate random number")
+	r, err := rand.Int(rand.Reader, big.NewInt(int64(len(trash.Regular.Text)-1)))
+	if err != nil {
+		log.WithField("err", err).Error("failed to generate random number to pick trash string")
 		return "garbage"
-	} else {
-		return database.Trash.Regular.Text[int(r.Int64())]
 	}
+	return trash.Regular.Text[int(r.Int64())]
 }
 
 func makeEmbedFail(user, location, fail string, locDen database.UserLocDensity) *discordgo.MessageEmbed {
@@ -291,12 +292,12 @@ var t5Total = t4Total + t5
 
 func getFish(tier int, location string) database.InvFish {
 	_tier := selectTier(tier)
-	base := Fish.Location.Ocean
+	base := fish.Location.Ocean
 	switch location {
 	case "lake":
-		base = Fish.Location.Lake
+		base = fish.Location.Lake
 	case "river":
-		base = Fish.Location.River
+		base = fish.Location.River
 	}
 	fish := base[_tier-1].Fish
 	var rand1, rand2 int64
@@ -321,7 +322,7 @@ func getFish(tier int, location string) database.InvFish {
 			"price": sellPrice,
 		},
 	}).Debug("rand-fish")
-	return InvFish{location, _fish.Name, sellPrice, r, _tier, _fish.Pun, _fish.Image}
+	return database.InvFish{location, _fish.Name, sellPrice, r, _tier, _fish.Pun, _fish.Image}
 }
 
 func getFishPrice(tier int, min, max, l float64) float64 {
@@ -329,21 +330,27 @@ func getFishPrice(tier int, min, max, l float64) float64 {
 	switch tier {
 	case 1:
 		ratio = (l - min) / (max - min)
-		price = ((Fish.Prices[0][1] - Fish.Prices[0][0]) * ratio) + Fish.Prices[0][0]
+		price = ((fish.Prices[0][1] - fish.Prices[0][0]) * ratio) + fish.Prices[0][0]
 	case 2:
 		ratio = (l - min) / (max - min)
-		price = ((Fish.Prices[1][1] - Fish.Prices[1][0]) * ratio) + Fish.Prices[1][0]
+		price = ((fish.Prices[1][1] - fish.Prices[1][0]) * ratio) + fish.Prices[1][0]
 	case 3:
 		ratio = (l - min) / (max - min)
-		price = ((Fish.Prices[2][1] - Fish.Prices[2][0]) * ratio) + Fish.Prices[2][0]
+		price = ((fish.Prices[2][1] - fish.Prices[2][0]) * ratio) + fish.Prices[2][0]
 	case 4:
 		ratio = (l - min) / (max - min)
-		price = ((Fish.Prices[3][1] - Fish.Prices[3][0]) * ratio) + Fish.Prices[3][0]
+		price = ((fish.Prices[3][1] - fish.Prices[3][0]) * ratio) + fish.Prices[3][0]
 	case 5:
 		ratio = (l - min) / (max - min)
-		price = ((Fish.Prices[4][1] - Fish.Prices[4][0]) * ratio) + Fish.Prices[4][0]
+		price = ((fish.Prices[4][1] - fish.Prices[4][0]) * ratio) + fish.Prices[4][0]
 	default:
-		logError("Error getting fish price", errors.New("Unknown tier in price calculation"))
+		log.WithFields(log.Fields{
+			"err":  errors.New("unknown tier in price calculation"),
+			"tier": tier,
+			"max":  max,
+			"min":  min,
+			"l":    l,
+		}).Warn("failed to get fish price")
 		return price
 	}
 
@@ -352,7 +359,7 @@ func getFishPrice(tier int, min, max, l float64) float64 {
 
 func failed(e, uID string) string {
 	if e == "catch" {
-		go DBLoseBait(uID)
+		go database.DecrementBait(uID)
 		return "a fish bit but you were unable to wrangle it in"
 	}
 	if e == "bite" {
@@ -369,7 +376,7 @@ func selectTier(userTier int) int {
 	case 2:
 		sel, err := rand.Int(rand.Reader, big.NewInt(int64(t2Total)))
 		if err != nil {
-			logError("error generating rand int", err)
+			log.WithField("err", err).Error("failed to generate random number")
 			return 0
 		}
 		switch {
@@ -382,7 +389,7 @@ func selectTier(userTier int) int {
 	case 3:
 		sel, err := rand.Int(rand.Reader, big.NewInt(int64(t2Total)))
 		if err != nil {
-			logError("error generating rand int", err)
+			log.WithField("err", err).Error("failed to generate random number")
 			return 0
 		}
 		switch {
@@ -397,7 +404,7 @@ func selectTier(userTier int) int {
 	case 4:
 		sel, err := rand.Int(rand.Reader, big.NewInt(int64(t2Total)))
 		if err != nil {
-			logError("error generating rand int", err)
+			log.WithField("err", err).Error("failed to generate random number")
 			return 0
 		}
 		switch {
@@ -414,7 +421,7 @@ func selectTier(userTier int) int {
 	default:
 		sel, err := rand.Int(rand.Reader, big.NewInt(int64(t2Total)))
 		if err != nil {
-			logError("error generating rand int", err)
+			log.WithField("err", err).Error("failed to generate random number")
 			return 0
 		}
 		switch {

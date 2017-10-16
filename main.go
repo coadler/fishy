@@ -94,6 +94,9 @@ func init() {
 	if strconv.ParseBool(os.Getenv("DEBUG")) {
 		log.SetLevel(log.DebugLevel)
 	}
+
+	// Update config structs in routes subpackage
+	routes.GetConfigs()
 }
 
 func main() {

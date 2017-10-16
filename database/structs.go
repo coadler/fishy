@@ -1,58 +1,5 @@
 package database
 
-import (
-	"encoding/json"
-	"io/ioutil"
-	"log"
-)
-
-// FishData holds the JSON structure for fish.json
-type FishData struct {
-	Location struct {
-		Lake []struct {
-			Fish []struct {
-				Image string      `json:"image"`
-				Name  string      `json:"name"`
-				Pun   string      `json:"pun"`
-				Size  []int       `json:"size"`
-				Time  interface{} `json:"time"`
-			} `json:"fish"`
-		} `json:"lake"`
-		Ocean []struct {
-			Fish []struct {
-				Image string      `json:"image"`
-				Name  string      `json:"name"`
-				Pun   string      `json:"pun"`
-				Size  []int       `json:"size"`
-				Time  interface{} `json:"time"`
-			} `json:"fish"`
-		} `json:"ocean"`
-		River []struct {
-			Fish []struct {
-				Image string      `json:"image"`
-				Name  string      `json:"name"`
-				Pun   string      `json:"pun"`
-				Size  []int       `json:"size"`
-				Time  interface{} `json:"time"`
-			} `json:"fish"`
-		} `json:"river"`
-	} `json:"location"`
-	Prices [][]float64
-}
-
-// TrashData stores the data structure for trash data
-type TrashData struct {
-	Regular struct {
-		Text []string `json:"text"`
-		User []string `json:"user"`
-	} `json:"regular"`
-	Treasure []struct {
-		Description string `json:"description"`
-		Name        string `json:"name"`
-		Worth       int    `json:"worth"`
-	} `json:"treasure"`
-}
-
 // InvFish holds the JSON structure for a singular fish
 type InvFish struct {
 	Location string  `json:"location"`
@@ -70,51 +17,6 @@ type FishInv struct {
 	Garbage     int `json:"garbage"`
 	Legendaries int `json:"legendaries"`
 	Worth       int `json:"worth"`
-}
-
-// ItemData holds the JSON structure for items.json
-type ItemData struct {
-	Bait []struct {
-		Name        string  `json:"name"`
-		ID          string  `json:"id"`
-		Tier        int     `json:"tier"`
-		Cost        int     `json:"cost"`
-		Effect      float64 `json:"effect"`
-		Description string  `json:"description"`
-	} `json:"bait"`
-	Rod []struct {
-		Name        string  `json:"name"`
-		ID          string  `json:"id"`
-		Tier        int     `json:"tier"`
-		Cost        int     `json:"cost"`
-		Effect      float64 `json:"effect"`
-		Description string  `json:"description"`
-	} `json:"rod"`
-	Hook []struct {
-		Name        string  `json:"name"`
-		ID          string  `json:"id"`
-		Tier        int     `json:"tier"`
-		Cost        int     `json:"cost"`
-		Effect      float64 `json:"effect,omitempty"`
-		Description string  `json:"description"`
-		Modifier    float64 `json:"modifier,omitempty"`
-	} `json:"hook"`
-	Vehicle []struct {
-		Name        string `json:"name"`
-		ID          string `json:"id"`
-		Tier        int    `json:"tier"`
-		Cost        int    `json:"cost"`
-		Effect      int    `json:"effect"`
-		Description string `json:"description"`
-	} `json:"vehicle"`
-	BaitBox []struct {
-		Name        string `json:"name"`
-		ID          string `json:"id"`
-		Tier        int    `json:"tier"`
-		Cost        int    `json:"cost"`
-		Effect      int    `json:"effect"`
-		Description string `json:"description"`
-	} `json:"bait_box"`
 }
 
 // UserItems holds the JSON structure for a users items
@@ -169,25 +71,6 @@ type LocationResponse struct {
 	Error    bool   `json:"error"`
 }
 
-// ConfigData holds the structure for config.json
-type ConfigData struct {
-	Redis struct {
-		URL      string `json:"url"`
-		Password string `json:"password"`
-		DB       int    `json:"db"`
-	} `json:"redis"`
-	Webhook string `json:"webhook"`
-}
-
-// LevelData holds the data for tier requirements
-type LevelData struct {
-	T1 int `json:"t1"`
-	T2 int `json:"t2"`
-	T3 int `json:"t3"`
-	T4 int `json:"t4"`
-	T5 int `json:"t5"`
-}
-
 // BuyItemRequest holds the request structure for buying an item
 type BuyItemRequest struct {
 	Category string `json:"category"`
@@ -234,11 +117,6 @@ type TimeData struct {
 }
 
 //
-type SecretStrings struct {
-	InvEE []string `json:"invee"`
-}
-
-//
 type UserStats struct {
 	Garbage   int     `json:"garbage"`
 	Fish      int     `json:"fish"`
@@ -251,35 +129,4 @@ type CommandStatData struct {
 	Hourly int `json:"hourly"`
 	Daily  int `json:"daily"`
 	Total  int `json:"total"`
-}
-
-var (
-	Fish    FishData
-	Trash   TrashData
-	Items   ItemData
-	Config  ConfigData
-	Levels  LevelData
-	Secrets SecretStrings
-
-	files = map[string]interface{}{
-		"json/fish.json":          &Fish,
-		"json/items.json":         &Items,
-		"config.json":             &Config,
-		"json/levels.json":        &Levels,
-		"json/secretstrings.json": &Secrets,
-		"json/trash.json":         &Trash,
-	}
-)
-
-func GetConfigs() {
-	for k, v := range files {
-		data, err := ioutil.ReadFile(k)
-		if err != nil {
-			log.Panic(k + " not detected in current directory, " + err.Error())
-		}
-
-		if err := json.Unmarshal(data, &v); err != nil {
-			log.Panic("Could not unmarshal json, " + err.Error())
-		}
-	}
 }
