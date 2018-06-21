@@ -12,10 +12,6 @@ import (
 	"strings"
 	"time"
 
-	elastic "gopkg.in/olivere/elastic.v5"
-	elogrus "gopkg.in/sohlich/elogrus.v2"
-
-	"github.com/ThyLeader/discordrus"
 	"github.com/go-redis/redis"
 	"github.com/iopred/discordgo"
 	"github.com/mitchellh/mapstructure"
@@ -28,36 +24,36 @@ const locDensityExpiration time.Duration = 3 * time.Hour
 
 func init() {
 	GetConfigs()
-	client, err := elastic.NewClient(elastic.SetURL("http://10.0.0.2:9200"))
-	if err != nil {
-		log.Panic(err)
-	}
-	hook, err := elogrus.NewElasticHook(client, "localhost", log.DebugLevel, "fishy-dev")
-	if err != nil {
-		log.Panic(err)
-	}
-	log.AddHook(hook)
+	// client, err := elastic.NewClient(elastic.SetURL("http://10.0.0.2:9200"))
+	// if err != nil {
+	// 	log.Panic(err)
+	// }
+	// hook, err := elogrus.NewElasticHook(client, "localhost", log.DebugLevel, "fishy-dev")
+	// if err != nil {
+	// 	log.Panic(err)
+	// }
+	// log.AddHook(hook)
 	log.SetLevel(log.DebugLevel)
-	log.AddHook(discordrus.NewHook(
-		Config.Webhook,
-		log.ErrorLevel,
-		&discordrus.Opts{
-			Username:           "fishy-api1",
-			Author:             "",
-			DisableTimestamp:   false,
-			TimestampFormat:    "Jan 2 15:04:05.00000",
-			EnableCustomColors: true,
-			CustomLevelColors: &discordrus.LevelColors{
-				Debug: 10170623,
-				Info:  3581519,
-				Warn:  14327864,
-				Error: 13631488,
-				Panic: 13631488,
-				Fatal: 13631488,
-			},
-			DisableInlineFields: true,
-		},
-	))
+	// log.AddHook(discordrus.NewHook(
+	// 	Config.Webhook,
+	// 	log.ErrorLevel,
+	// 	&discordrus.Opts{
+	// 		Username:           "fishy-api1",
+	// 		Author:             "",
+	// 		DisableTimestamp:   false,
+	// 		TimestampFormat:    "Jan 2 15:04:05.00000",
+	// 		EnableCustomColors: true,
+	// 		CustomLevelColors: &discordrus.LevelColors{
+	// 			Debug: 10170623,
+	// 			Info:  3581519,
+	// 			Warn:  14327864,
+	// 			Error: 13631488,
+	// 			Panic: 13631488,
+	// 			Fatal: 13631488,
+	// 		},
+	// 		DisableInlineFields: true,
+	// 	},
+	// ))
 	redisClient = redis.NewClient(&redis.Options{
 		Addr:     Config.Redis.URL,
 		Password: Config.Redis.Password,

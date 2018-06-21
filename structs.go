@@ -76,7 +76,7 @@ type FishInv struct {
 type ItemData struct {
 	Bait []struct {
 		Name        string  `json:"name"`
-		ID          string  `json:"id"`
+		ID          int     `json:"id"`
 		Tier        int     `json:"tier"`
 		Cost        int     `json:"cost"`
 		Effect      float64 `json:"effect"`
@@ -84,7 +84,7 @@ type ItemData struct {
 	} `json:"bait"`
 	Rod []struct {
 		Name        string  `json:"name"`
-		ID          string  `json:"id"`
+		ID          int     `json:"id"`
 		Tier        int     `json:"tier"`
 		Cost        int     `json:"cost"`
 		Effect      float64 `json:"effect"`
@@ -92,7 +92,7 @@ type ItemData struct {
 	} `json:"rod"`
 	Hook []struct {
 		Name        string  `json:"name"`
-		ID          string  `json:"id"`
+		ID          int     `json:"id"`
 		Tier        int     `json:"tier"`
 		Cost        int     `json:"cost"`
 		Effect      float64 `json:"effect,omitempty"`
@@ -101,7 +101,7 @@ type ItemData struct {
 	} `json:"hook"`
 	Vehicle []struct {
 		Name        string `json:"name"`
-		ID          string `json:"id"`
+		ID          int    `json:"id"`
 		Tier        int    `json:"tier"`
 		Cost        int    `json:"cost"`
 		Effect      int    `json:"effect"`
@@ -109,7 +109,7 @@ type ItemData struct {
 	} `json:"vehicle"`
 	BaitBox []struct {
 		Name        string `json:"name"`
-		ID          string `json:"id"`
+		ID          int    `json:"id"`
 		Tier        int    `json:"tier"`
 		Cost        int    `json:"cost"`
 		Effect      int    `json:"effect"`
@@ -279,7 +279,7 @@ func GetConfigs() {
 		}
 
 		if err := json.Unmarshal(data, &v); err != nil {
-			log.Panic("Could not unmarshal json, " + err.Error())
+			log.Panic("Could not unmarshal json file " + k + ", " + err.Error())
 		}
 	}
 }
